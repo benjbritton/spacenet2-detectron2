@@ -1,0 +1,11 @@
+# Datasets and model weights: large, re-downloadable, never in git.
+data/
+outputs/
+wandb/
+*.pth
+*.pkl
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/

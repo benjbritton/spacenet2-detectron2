@@ -1,0 +1,33 @@
+# Overrides applied ON TOP OF the model-zoo config
+# COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml.
+#
+# Only deltas live here so the base stays traceable to upstream rather than
+# being copied and silently drifting.
+
+DATASETS:
+  TRAIN: ("balloon_train",)
+  TEST: ("balloon_val",)
+
+DATALOADER:
+  NUM_WORKERS: 8          # 36c/72t host; data loading should never be the bottleneck
+
+MODEL:
+  ROI_HEADS:
+    NUM_CLASSES: 1        # balloon only (COCO head of 80 is replaced)
+    BATCH_SIZE_PER_IMAGE: 128
+
+SOLVER:
+  IMS_PER_BATCH: 2
+  BASE_LR: 0.00025
+  MAX_ITER: 1500
+  STEPS: (1000, 1350)     # LR decay points
+  CHECKPOINT_PERIOD: 500
+  AMP:
+    ENABLED: True         # fp16. NOT bf16 -- bf16/TF32 are Ampere-only and would
+                          # fail on the 2080 Ti (sm_75). fp16 works on both it and
+                          # the incoming A5000, so this config survives the swap.
+
+TEST:
+  EVAL_PERIOD: 250
+
+OUTPUT_DIR: "outputs/balloon_r50fpn"

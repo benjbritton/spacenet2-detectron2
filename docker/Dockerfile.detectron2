@@ -1,0 +1,53 @@
+# detectron2 for the FA26 Independent Study.
+# Base pinned to the same torch/CUDA as the Windows-side `m2` conda env (torch 2.5.1 / CUDA 12.4),
+# so results are comparable across the two environments. `devel` (not `runtime`) because
+# detectron2 compiles C++/CUDA extensions and needs nvcc.
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    FORCE_CUDA=1 \
+    # 7.5 = RTX 2080 Ti (Turing, current card). 8.6 = RTX A5000 (Ampere, incoming).
+    # Building BOTH is what makes the GPU swap a no-op for this image:
+    # a 7.5-only build would run today and fail on the A5000.
+    # +PTX embeds forward-compatible PTX for any later arch.
+    TORCH_CUDA_ARCH_LIST="7.5;8.6+PTX" \
+    MAX_JOBS=32
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git ninja-build build-essential ca-certificates \
+        libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# detectron2 predates numpy 2 and breaks against it (COCO eval and pycocotools
+# are where it bites, not at import). A plain `pip install "numpy<2"` is NOT
+# enough -- a later resolve silently upgrades it back. PIP_CONSTRAINT binds
+# every pip invocation in this image, including detectron2's own dependency
+# resolution and anything installed at runtime.
+COPY constraints.txt /etc/pip-constraints.txt
+ENV PIP_CONSTRAINT=/etc/pip-constraints.txt
+
+RUN pip install --no-cache-dir "numpy<2"
+
+RUN pip install --no-cache-dir \
+        opencv-python-headless pycocotools fvcore cloudpickle \
+        omegaconf hydra-core timm \
+        wandb tensorboard matplotlib tqdm scipy
+
+# Clone rather than `pip install git+...` so projects/ViTDet is present on disk.
+# Pinned to an explicit commit: detectron2 has cut no tagged release since 0.6,
+# so `main` is a moving target and unpinned it breaks reproducibility.
+ARG DETECTRON2_REF=a2f4a8771ab77e8411c26b27f24f9489a28a2453
+RUN git clone https://github.com/facebookresearch/detectron2.git /opt/detectron2 \
+    && cd /opt/detectron2 && git checkout ${DETECTRON2_REF}
+
+# --no-build-isolation so it builds against the torch already installed here,
+# not a fresh one pip would otherwise pull into an isolated build env.
+RUN pip install --no-cache-dir --no-build-isolation -e /opt/detectron2
+
+# Fail the BUILD, not a training run three hours in, if numpy drifted back up.
+RUN python -c "import numpy, sys; v=numpy.__version__; sys.exit(0 if int(v.split('.')[0])<2 else f'numpy {v} >= 2')" \
+    && python -c "from detectron2 import _C; from detectron2.layers import nms, ROIAlign; print('detectron2 ext OK')"
+
+ENV DETECTRON2_ROOT=/opt/detectron2
+WORKDIR /workspace
