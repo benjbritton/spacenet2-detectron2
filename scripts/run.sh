@@ -15,7 +15,14 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NETRC="${HOME}/.netrc"
 [ -f "$NETRC" ] || touch "$NETRC"
 
-exec docker run --rm -it \
+# Allocate a TTY only when there actually is one. `-t` without a terminal
+# (CI, piped output, non-interactive shell) makes docker refuse to start.
+TTY_FLAGS="-i"
+if [ -t 0 ] && [ -t 1 ]; then
+  TTY_FLAGS="-it"
+fi
+
+exec docker run --rm ${TTY_FLAGS} \
   --gpus all \
   --shm-size=8g \
   -v "${REPO}:/workspace" \
