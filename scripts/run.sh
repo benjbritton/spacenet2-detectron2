@@ -22,11 +22,16 @@ if [ -t 0 ] && [ -t 1 ]; then
   TTY_FLAGS="-it"
 fi
 
+# Entity is pinned to the personal handle rather than the auto-created
+# `benjbritton-geoai` team, so published run URLs match the same username used
+# on GitHub, Hugging Face and LinkedIn. Override per-invocation if a project
+# genuinely needs the team (collaborators can only be added to a team entity).
 exec docker run --rm ${TTY_FLAGS} \
   --gpus all \
   --shm-size=8g \
   -v "${REPO}:/workspace" \
   -v "${NETRC}:/root/.netrc" \
   -e WANDB_PROJECT="${WANDB_PROJECT:-fa26-independent-study}" \
+  -e WANDB_ENTITY="${WANDB_ENTITY:-benjbritton}" \
   -w /workspace \
   "$IMAGE" "$@"
