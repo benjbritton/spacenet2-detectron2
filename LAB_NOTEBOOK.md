@@ -98,3 +98,84 @@ marketing page. GitHub Settings > Applications shows the Weights & Biases OAuth
 app authorized but **"Never used"** - the grant exists, but no sign-in was ever
 completed through it, so no W&B account/entity exists and there is no workspace to
 route to. Fix: wandb.ai/login, sign in with GitHub, complete the username step.
+
+---
+
+## 2026-08-22 - First full training run (Milestone A complete)
+
+**Goal.** Fine-tune Mask R-CNN R50-FPN on balloon, tracked live in W&B, as the
+first reproducible experiment required by Milestone A (due 2026-09-06).
+
+**Run:** `balloon-maskrcnn-r50-20260822-054456`
+https://wandb.ai/benjbritton-geoai/fa26-independent-study/runs/3m81zlqa
+
+1500 iterations, batch 2, fp16 AMP, LR 0.00025 decaying x0.1 at 1000 and 1350,
+evaluation every 250 iterations on the 13 held-out images.
+
+| iter | segm/AP | bbox/AP | segm/APs |
+|------|---------|---------|----------|
+| 249  | 11.93   | 7.81    | 0.32     |
+| 499  | 52.30   | 44.71   | 0.93     |
+| 749  | 73.81   | 66.86   | 1.33     |
+| 999  | 78.88   | 71.95   | 1.63     |
+| 1249 | **81.55** | 77.01 | 13.81    |
+| 1500 | 81.54   | 78.59   | 13.94    |
+
+Final: segm AP 81.54, bbox AP 78.59, cls_accuracy 0.967, false-negative 0.074.
+Peak VRAM 2.68 GiB of 11 GiB. Wall time roughly 6 minutes.
+
+### Two findings worth more than the headline number
+
+**Converged at ~1250, not 1500.** 81.55 -> 81.54 over the last 250 iterations.
+`BestCheckpointer` correctly kept iteration 1249 as `model_best.pth` rather than
+the final weights. 1500 was slightly more than this dataset needs.
+
+**`segm/APs` jumped 1.63 -> 13.81 between iteration 999 and 1249** -- an 8x step
+change while overall AP moved about 3 points. That is the LR decay at iteration
+1000 landing almost entirely on *small* objects: large instances were already
+learned, and the coarse learning rate had been preventing the fine-boundary
+refinement small instances depend on.
+
+Generalizable: the back half of the LR schedule does most of the small-object
+work. Truncating training early costs small-object performance specifically
+while the headline AP still looks healthy. Relevant to SpaceNet buildings and to
+any small-target detection.
+
+### Artifacts
+
+```
+outputs/balloon_r50fpn/
+  model_best.pth     iteration 1249, best segm/AP
+  model_final.pth    iteration 1500
+  metrics.json       full metric history
+  samples/           3 annotated validation images
+```
+
+### Infrastructure fixed along the way
+
+**Containers were writing as root.** Everything written through the bind mount --
+checkpoints, metrics.json, wandb run dirs -- landed on the host owned by
+`root:root`, so outputs could not be deleted or edited without sudo and were
+untouchable from Windows Explorer. `run.sh` now passes `-u $(id -u):$(id -g)`.
+A non-root UID has no passwd entry so HOME is unset; it now points at a mounted
+`.cache/`, which also persists model-zoo downloads between runs.
+
+**Geospatial stack added to the image** for the SpaceNet converter: rasterio
+1.4.4, shapely 2.1.2, pyproj 3.7.2 (PROJ 9.5.1). Placed *after* the detectron2
+layer so the cached CUDA compile survived -- rebuild took 8 seconds instead of
+~15 minutes. The numpy assertion now runs last and still passes at 1.26.4,
+confirming the geo wheels did not drag numpy past 2.
+
+### W&B account resolution
+
+The redirect loop was **not** a provisioning bug and **not** the username rename.
+W&B would not create an entity until the onboarding flow was completed by
+clicking one of the three intro sections and pressing Continue. Navigating
+directly to `/authorize` or `/settings` bypassed that screen, which is why every
+direct attempt bounced to the marketing page.
+
+Also: accounts created under an organization get **no personal entity**. There is
+no `benjbritton` entity; only the `benjbritton-geoai` team. An `api.projects()`
+check returns an empty list for a nonexistent entity as well as an empty one, so
+it cannot distinguish them -- it is not a valid existence test. Renaming the team
+later would carry its runs along, since a rename keeps the same entity.
