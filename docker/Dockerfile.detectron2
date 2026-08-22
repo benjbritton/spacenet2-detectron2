@@ -45,7 +45,18 @@ RUN git clone https://github.com/facebookresearch/detectron2.git /opt/detectron2
 # not a fresh one pip would otherwise pull into an isolated build env.
 RUN pip install --no-cache-dir --no-build-isolation -e /opt/detectron2
 
+# Geospatial stack for SpaceNet: src/detlab/datasets/geojson_to_coco.py needs
+# rasterio (raster CRS + affine transform), shapely (polygon validity, clipping,
+# area) and pyproj (the CRS reprojection rasterio.warp delegates to).
+#
+# Placed AFTER the detectron2 install on purpose: adding it earlier would
+# invalidate the cached layer holding the compiled CUDA extensions and force a
+# ~15 minute recompile on every future change to this list.
+RUN pip install --no-cache-dir rasterio shapely pyproj
+
 # Fail the BUILD, not a training run three hours in, if numpy drifted back up.
+# Runs last so it also catches the geo packages dragging numpy forward -- the
+# exact way the pin was lost the first time.
 RUN python -c "import numpy, sys; v=numpy.__version__; sys.exit(0 if int(v.split('.')[0])<2 else f'numpy {v} >= 2')" \
     && python -c "from detectron2 import _C; from detectron2.layers import nms, ROIAlign; print('detectron2 ext OK')"
 
