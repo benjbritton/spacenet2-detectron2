@@ -1,6 +1,7 @@
 # Datasets and model weights: large, re-downloadable, never in git.
 data/
 outputs/
+.cache/
 wandb/
 *.pth
 *.pkl

@@ -10,8 +10,24 @@ set -euo pipefail
 IMAGE="${IMAGE:-m2/detectron2:cu124-torch251}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Persist the W&B credential across containers. `wandb login` writes ~/.netrc,
-# so the file must exist on the host before it can be bind-mounted.
+# Run as the invoking user, NOT root.
+#
+# Containers default to root, so everything written through the bind mount --
+# checkpoints, metrics.json, wandb run dirs -- lands on the host owned by
+# root:root. You then cannot delete or edit your own outputs without sudo, and
+# Windows Explorer cannot touch them at all. Matching the host UID/GID keeps
+# ownership correct on both sides.
+USER_FLAGS="-u $(id -u):$(id -g)"
+
+# A non-root UID has no entry in the container passwd file, so HOME is unset and
+# anything expecting a home directory breaks. Point it at a mounted cache dir:
+# this also persists the model-zoo downloads (~178 MB per checkpoint) and the
+# matplotlib/fontconfig caches between runs instead of refetching every time.
+CACHE="${REPO}/.cache"
+mkdir -p "$CACHE"
+
+# `wandb login` wrote the credential to the host ~/.netrc. Mount it where the
+# container HOME expects to find it.
 NETRC="${HOME}/.netrc"
 [ -f "$NETRC" ] || touch "$NETRC"
 
@@ -23,14 +39,16 @@ if [ -t 0 ] && [ -t 1 ]; then
 fi
 
 # Entity is pinned to the personal handle rather than the auto-created
-# `benjbritton-geoai` team, so published run URLs match the same username used
-# on GitHub, Hugging Face and LinkedIn. Override per-invocation if a project
+# benjbritton-geoai team, so published run URLs match the same username used on
+# GitHub, Hugging Face and LinkedIn. Override per-invocation if a project
 # genuinely needs the team (collaborators can only be added to a team entity).
-exec docker run --rm ${TTY_FLAGS} \
+exec docker run --rm ${TTY_FLAGS} ${USER_FLAGS} \
   --gpus all \
   --shm-size=8g \
   -v "${REPO}:/workspace" \
-  -v "${NETRC}:/root/.netrc" \
+  -v "${CACHE}:/cache" \
+  -v "${NETRC}:/cache/.netrc" \
+  -e HOME=/cache \
   -e WANDB_PROJECT="${WANDB_PROJECT:-fa26-independent-study}" \
   -e WANDB_ENTITY="${WANDB_ENTITY:-benjbritton}" \
   -w /workspace \
