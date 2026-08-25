@@ -72,7 +72,7 @@ rather than Ampere-only bf16.
 
 ---
 
-## 2026-08-21 - Repo scaffolding (~/m2/repos/detection-lab)
+## 2026-08-21 - Repo scaffolding (~/m2/repos/benjbritton_FA26)
 
 **Goal.** A version-controlled home for the first tracked experiment, structured to
 carry into the SpaceNet 2 baseline rather than be thrown away.

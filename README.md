@@ -1,4 +1,4 @@
-# detection-lab
+# benjbritton_FA26
 
 detectron2 training scaffolding for the FA26 Independent Study (Britton, UC Geography & GIS).
 
