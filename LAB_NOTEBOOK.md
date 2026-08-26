@@ -141,6 +141,12 @@ work. Truncating training early costs small-object performance specifically
 while the headline AP still looks healthy. Relevant to SpaceNet buildings and to
 any small-target detection.
 
+> **Revised 2026-08-26 -- do not cite this subsection as written.** Five runs
+> confirm the *direction* but not the *magnitude*: the 8x figure is one draw from
+> a metric whose final value ranges 7.05 to 26.19 across seeds, and `segm/APs` on
+> this dataset is computed over **three** validation instances. See the
+> 2026-08-26 entry below.
+
 ### Artifacts
 
 ```
@@ -179,3 +185,158 @@ no `benjbritton` entity; only the `benjbritton-geoai` team. An `api.projects()`
 check returns an empty list for a nonexistent entity as well as an empty one, so
 it cannot distinguish them -- it is not a valid existence test. Renaming the team
 later would carry its runs along, since a rename keeps the same entity.
+
+
+## 2026-08-26 - GPU swap, seeding, and what five runs did to the small-object claim
+
+### RTX 2080 Ti -> RTX A5000: no rebuild, no config change
+
+The card was swapped and the Windows driver updated. Nothing else was touched.
+
+| | before | after |
+|---|---|---|
+| card | RTX 2080 Ti, sm_75 | RTX A5000, sm_86 |
+| VRAM | 11264 MiB | 24564 MiB |
+| driver / CUDA | 591.86 / 13.1 | 596.86 / 13.2 |
+
+Verified with `scripts/verify_gpu.py` (added this session; run it via
+`./scripts/run.sh python scripts/verify_gpu.py`). The check that matters is not
+`nvidia-smi` but whether detectron2's *compiled* CUDA kernels launch: `nms` and
+`ROIAlign` run natively on sm_86. That is the payoff from building the image with
+`TORCH_CUDA_ARCH_LIST="7.5;8.6+PTX"` back in August -- a 7.5-only build would
+fail here with "no kernel image is available for execution on the device".
+
+`torch.cuda.is_bf16_supported()` is now True. TF32 remains off at torch's
+default, so nothing changed silently. The fp16 AMP config still runs unmodified;
+bf16 is now an option rather than something the hardware refused.
+
+Same-config rerun: 4:33 wall vs roughly 6:00 on the 2080 Ti, peak VRAM 2754 MB
+vs 2745 MB. This model is far too small to be limited by either card. The 24 GB
+matters for ViTDet + Cascade later, not for R50-FPN at batch 2.
+
+### Seeding: setting `cfg.SEED` alone would have been a silent no-op
+
+detectron2 reads `cfg.SEED` in exactly one place -- `seed_all_rng(...)` inside
+`engine/defaults.py:244`, which lives in `default_setup()`. **This script never
+calls `default_setup()`**; it calls `setup_logger()` directly. So a `--seed` flag
+wired only to `cfg.SEED` would have appeared to work and changed nothing. The
+flag calls `seed_all_rng()` explicitly, before `LabTrainer(cfg)` builds the model
+and the loader.
+
+Default remains `-1`, which detectron2 turns into
+`os.getpid() + clock_microseconds + os.urandom(2)`. Both earlier balloon runs
+were unseeded, so they differ in every weight initialization, batch order,
+augmentation draw and ROI sample -- hardware was never the only variable between
+them.
+
+Seeding is verified at the level it can be verified. Building the model twice at
+seed 0 gives a bit-identical state-dict hash (`7f264ada4f1433904753f900`), and
+seed 1 gives a different one. **But training is still not bit-exact**: two
+smoke runs at seed 0 diverged (total_loss 2.072 vs 2.12 by iteration 19).
+That is nondeterministic CUDA kernel accumulation plus fp16 loss scaling, exactly
+what the comment above `_C.SEED` in `config/defaults.py` warns about. Seeds buy
+comparable runs, not identical ones; bit-exactness would additionally need
+`cudnn.deterministic` and no autotuner, at a throughput cost not worth paying.
+
+### Five runs: overall AP is solid, `APs` is not a measurement
+
+Three seeded runs (0, 1, 2) plus the two unseeded ones. Identical config
+throughout.
+
+`segm/AP`:
+
+| run | 250 | 500 | 750 | 1000 | 1250 | 1500 |
+|---|---|---|---|---|---|---|
+| 2080 Ti unseeded | 11.93 | 52.30 | 73.81 | 78.88 | 81.55 | 81.54 |
+| A5000 unseeded | 16.35 | 61.36 | 75.37 | 79.22 | 81.40 | 81.61 |
+| A5000 seed 0 | 4.23 | 42.81 | 67.79 | 77.45 | 81.28 | 81.62 |
+| A5000 seed 1 | 11.10 | 45.78 | 62.20 | 77.86 | 80.69 | 81.27 |
+| A5000 seed 2 | 2.77 | 46.26 | 70.20 | 76.82 | 80.12 | 81.52 |
+
+mean 81.51, sd 0.14, **CV 0.2%**.
+
+`segm/APs`:
+
+| run | 250 | 500 | 750 | 1000 | 1250 | 1500 |
+|---|---|---|---|---|---|---|
+| 2080 Ti unseeded | 0.32 | 0.93 | 1.33 | 1.63 | 13.81 | 13.94 |
+| A5000 unseeded | 1.05 | 1.97 | 8.92 | 11.53 | 25.95 | 26.19 |
+| A5000 seed 0 | 0.19 | 0.79 | 1.35 | 1.08 | 6.94 | 7.05 |
+| A5000 seed 1 | 0.00 | 0.64 | 0.97 | 4.73 | 6.54 | 7.78 |
+| A5000 seed 2 | 0.40 | 1.69 | 2.34 | 0.94 | 7.01 | 10.36 |
+
+mean 13.06, sd 7.82, **CV 59.8%** -- about 300x the relative variability of
+overall AP. Note also that early trajectories differ wildly (AP at iteration 250
+spans 2.77 to 16.35) while all five converge to the same place. Early-iteration
+comparisons between runs are worthless here.
+
+### Revising the 2026-08-22 small-object claim
+
+**The direction holds, 5 runs out of 5.** Every run shows a large step change in
+`segm/APs` between iteration 999 and 1249, which is where `STEPS: (1000, 1350)`
+drops the learning rate. Across that interval overall AP gains 2-4 points (~3%
+relative) while `APs` gains 140% to 750% relative. The decay's benefit really is
+concentrated on small objects, across seeds and across two GPU generations.
+
+**The magnitude does not hold.** The jump ratio ranges from 1.4x (seed 1) to 8.5x
+(2080 Ti). The original "8x" was one draw, and the 13.94 endpoint was a
+mid-range sample from a metric spanning 7.05 to 26.19.
+
+Stated properly: *LR decay disproportionately benefits small objects; the effect
+is directionally robust but its size is not estimable from this dataset.*
+
+### Why `APs` cannot be estimated here: three instances
+
+Instance-size census of the balloon annotations, by COCO thresholds
+(small < 32^2 = 1024 px, large > 96^2 = 9216 px):
+
+```
+VAL   - 13 images,  50 instances
+   small  (< 1024 px):   3 ( 6.0%)     areas: 84, 166, 1021
+   medium (1024-9216):  17 (34.0%)
+   large  (> 9216 px):  30 (60.0%)
+TRAIN - 61 images, 255 instances
+   small  (< 1024 px):  10 ( 3.9%)
+```
+
+`segm/APs` is average precision over **three** instances. Two are ~9x9 and ~13x13
+pixels; the third is 1021 px, three pixels under the small/medium boundary, so a
+marginally different annotation would move it out of the bucket entirely. AP over
+three instances moves in enormous discrete steps -- detecting two rather than one
+swings it by tens of points. That is the whole explanation for both the low value
+and the 60% CV. No architectural account is needed: the model is Mask R-CNN
+R50-FPN, a CNN with an FPN, and nothing about it is being tested by this metric.
+
+Lesson to carry forward: check the per-bucket instance count before reading a
+per-bucket metric. SpaceNet 2's validation sets are large enough that this exact
+failure will not recur, but the habit should.
+
+### Artifacts
+
+```
+outputs/balloon_seed0/  seed 0    segm AP 81.62   APs  7.05
+outputs/balloon_seed1/  seed 1    segm AP 81.27   APs  7.78
+outputs/balloon_seed2/  seed 2    segm AP 81.52   APs 10.36
+outputs/balloon_r50fpn_a5000/     segm AP 81.61   APs 26.19   (unseeded)
+outputs/balloon_r50fpn/           segm AP 81.54   APs 13.94   (unseeded, 2080 Ti)
+```
+
+W&B runs `balloon-a5000-seed0/1/2` and `balloon-a5000` in project
+`benjbritton_FA26`.
+
+### Housekeeping
+
+- W&B project renamed `fa26-independent-study` -> `benjbritton_FA26`, entity
+  unchanged, both existing runs carried across with their ids intact. The rename
+  returned a UI error page while succeeding server-side; the post-rename redirect
+  targets the old URL.
+- The account has no personal entity and cannot get one by renaming: signup
+  provisioned an org and a team, `wandb.init(entity="benjbritton")` fails with
+  `CommError: entity benjbritton not found during upsertBucket` ("not found", not
+  "forbidden"), and the team cannot take the name `benjbritton` because the user
+  account holds it. Published URLs are `wandb.ai/benjbritton-geoai/...` unless
+  W&B support provisions one on request.
+- Repo published (private) at `github.com/benjbritton/benjbritton_FA26`. All
+  commits were rewritten from `brittobj@mail.uc.edu` to
+  `benjaminbritton@yahoo.com` before the first push, so they attribute to the
+  GitHub account; git identity is now set globally to match.
