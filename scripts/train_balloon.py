@@ -33,7 +33,11 @@ def parse_args():
     p.add_argument("--eval-period", type=int, default=None)
     p.add_argument("--data-root", default=os.path.join(REPO, "data"))
     p.add_argument("--output", default=None, help="override OUTPUT_DIR")
-    p.add_argument("--project", default="fa26-independent-study")
+    # Default follows run.sh so the project name lives in one place. An
+    # argparse default outranks the environment, which is how the rename
+    # to benjbritton_FA26 got missed here the first time.
+    p.add_argument("--project",
+                   default=os.environ.get("WANDB_PROJECT", "benjbritton_FA26"))
     p.add_argument("--run-name", default=None)
     p.add_argument("--offline", action="store_true", help="WANDB_MODE=offline; sync later")
     p.add_argument("--no-wandb", action="store_true", help="disable W&B entirely")

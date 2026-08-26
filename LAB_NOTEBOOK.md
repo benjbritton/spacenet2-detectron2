@@ -107,7 +107,7 @@ route to. Fix: wandb.ai/login, sign in with GitHub, complete the username step.
 first reproducible experiment required by Milestone A (due 2026-09-06).
 
 **Run:** `balloon-maskrcnn-r50-20260822-054456`
-https://wandb.ai/benjbritton-geoai/fa26-independent-study/runs/3m81zlqa
+https://wandb.ai/benjbritton-geoai/benjbritton_FA26/runs/3m81zlqa
 
 1500 iterations, batch 2, fp16 AMP, LR 0.00025 decaying x0.1 at 1000 and 1350,
 evaluation every 250 iterations on the 13 held-out images.

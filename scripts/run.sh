@@ -38,10 +38,20 @@ if [ -t 0 ] && [ -t 1 ]; then
   TTY_FLAGS="-it"
 fi
 
-# Entity is pinned to the personal handle rather than the auto-created
-# benjbritton-geoai team, so published run URLs match the same username used on
-# GitHub, Hugging Face and LinkedIn. Override per-invocation if a project
-# genuinely needs the team (collaborators can only be added to a team entity).
+# Entity is the auto-created benjbritton-geoai team, and it has to be.
+#
+# The user account benjbritton has NO personal entity: signup provisioned an
+# organization (benjbritton-geoai-org) and a team, and W&B does not create a
+# personal namespace in that flow. Verified 2026-08-26 --
+# wandb.init(entity="benjbritton") fails with
+#     CommError: entity benjbritton not found during upsertBucket
+# Note "not found", not "forbidden": the namespace does not exist, so this is
+# not a permissions issue that a role change would fix. api.viewer.teams lists
+# only [benjbritton-geoai].
+#
+# The team also cannot be renamed to benjbritton -- the user account already
+# holds that name. Published URLs are therefore wandb.ai/benjbritton-geoai/...
+# unless W&B support provisions a personal entity on request.
 exec docker run --rm ${TTY_FLAGS} ${USER_FLAGS} \
   --gpus all \
   --shm-size=8g \
