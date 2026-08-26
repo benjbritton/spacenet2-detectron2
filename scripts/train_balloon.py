@@ -17,6 +17,7 @@ from detectron2 import model_zoo
 from detectron2.config import get_cfg
 from detectron2.data import MetadataCatalog
 from detectron2.engine import DefaultPredictor
+from detectron2.utils.env import seed_all_rng
 from detectron2.utils.logger import setup_logger
 from detectron2.utils.visualizer import ColorMode, Visualizer
 
@@ -38,6 +39,8 @@ def parse_args():
     # to benjbritton_FA26 got missed here the first time.
     p.add_argument("--project",
                    default=os.environ.get("WANDB_PROJECT", "benjbritton_FA26"))
+    p.add_argument("--seed", type=int, default=-1,
+                   help="RNG seed; -1 (default) means a fresh random seed per run")
     p.add_argument("--run-name", default=None)
     p.add_argument("--offline", action="store_true", help="WANDB_MODE=offline; sync later")
     p.add_argument("--no-wandb", action="store_true", help="disable W&B entirely")
@@ -51,6 +54,7 @@ def build_cfg(args):
     cfg.merge_from_file(os.path.join(REPO, "configs", "balloon_mask_rcnn_R50_FPN.yaml"))
     # COCO-pretrained starting weights.
     cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(BASE)
+    cfg.SEED = args.seed
 
     if args.smoke:
         cfg.SOLVER.MAX_ITER = 50
@@ -101,6 +105,15 @@ def main():
     cfg = build_cfg(args)
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 
+    # Seed explicitly. cfg.SEED is NOT enough: detectron2 consumes it only in
+    # default_setup(), which this script does not call, so setting it alone is a
+    # silent no-op. Must happen before LabTrainer(cfg) builds the model and the
+    # loader -- head initialization, data order, augmentation and ROI sampling are
+    # all downstream of this call. Dataloader workers reseed from torch initial
+    # seed plus worker id (data/build.py), so they follow from here too.
+    seed_all_rng(None if cfg.SEED < 0 else cfg.SEED)
+    print("seed: " + ("random" if cfg.SEED < 0 else str(cfg.SEED)))
+
     run = None
     if not args.no_wandb:
         import wandb
@@ -115,6 +128,7 @@ def main():
                 "ims_per_batch": cfg.SOLVER.IMS_PER_BATCH,
                 "amp": cfg.SOLVER.AMP.ENABLED,
                 "num_classes": cfg.MODEL.ROI_HEADS.NUM_CLASSES,
+                "seed": cfg.SEED,
                 "gpu": torch.cuda.get_device_name(0),
                 "torch": torch.__version__,
             },
