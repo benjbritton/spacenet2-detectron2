@@ -1,0 +1,111 @@
+{
+  "_note": "Per-city percentile constants for 16-bit to 8-bit stretch. Computed over nonzero pixels only; zeros are nodata border.",
+  "percentiles": {
+    "low": 2.0,
+    "high": 98.0
+  },
+  "pixel_stride": 4,
+  "tile_stride": 1,
+  "cities": {
+    "AOI_2_Vegas": {
+      "tiles_read": 3850,
+      "pixels_sampled_per_channel": 102290650,
+      "R": {
+        "p2.0": 151,
+        "p98.0": 1038,
+        "min_nonzero": 1,
+        "max": 1732,
+        "mean": 426.3201018372079
+      },
+      "G": {
+        "p2.0": 299,
+        "p98.0": 1321,
+        "min_nonzero": 1,
+        "max": 2047,
+        "mean": 594.424751461521
+      },
+      "B": {
+        "p2.0": 265,
+        "p98.0": 896,
+        "min_nonzero": 35,
+        "max": 1571,
+        "mean": 448.02068535897007
+      }
+    },
+    "AOI_3_Paris": {
+      "tiles_read": 1148,
+      "pixels_sampled_per_channel": 30501212,
+      "R": {
+        "p2.0": 126,
+        "p98.0": 464,
+        "min_nonzero": 1,
+        "max": 1932,
+        "mean": 212.65875666854922
+      },
+      "G": {
+        "p2.0": 223,
+        "p98.0": 483,
+        "min_nonzero": 87,
+        "max": 1823,
+        "mean": 287.9120458759935
+      },
+      "B": {
+        "p2.0": 224,
+        "p98.0": 371,
+        "min_nonzero": 49,
+        "max": 1550,
+        "mean": 260.6084839505269
+      }
+    },
+    "AOI_4_Shanghai": {
+      "tiles_read": 4582,
+      "pixels_sampled_per_channel": 121739158,
+      "R": {
+        "p2.0": 174,
+        "p98.0": 582,
+        "min_nonzero": 1,
+        "max": 1593,
+        "mean": 288.5453468032722
+      },
+      "G": {
+        "p2.0": 331,
+        "p98.0": 751,
+        "min_nonzero": 79,
+        "max": 1756,
+        "mean": 435.16952971410245
+      },
+      "B": {
+        "p2.0": 274,
+        "p98.0": 556,
+        "min_nonzero": 77,
+        "max": 1522,
+        "mean": 343.56638436624905
+      }
+    },
+    "AOI_5_Khartoum": {
+      "tiles_read": 1012,
+      "pixels_sampled_per_channel": 26887828,
+      "R": {
+        "p2.0": 333,
+        "p98.0": 834,
+        "min_nonzero": 1,
+        "max": 1604,
+        "mean": 534.8086405943219
+      },
+      "G": {
+        "p2.0": 456,
+        "p98.0": 929,
+        "min_nonzero": 159,
+        "max": 1696,
+        "mean": 605.924244609812
+      },
+      "B": {
+        "p2.0": 329,
+        "p98.0": 610,
+        "min_nonzero": 159,
+        "max": 1572,
+        "mean": 417.2204785046587
+      }
+    }
+  }
+}
