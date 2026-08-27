@@ -183,6 +183,49 @@ def register_pooled(root="data/spacenet2", coco_dir=None, prefix="spacenet2"):
     return registered
 
 
+def register_val_per_aoi(root="data/spacenet2", coco_dir=None, prefix="spacenet2"):
+    """Register one val dataset per AOI, derived from the pooled val set.
+
+    The per-city breakdown must come from exactly the tiles in the pooled val
+    set, not from a fresh split, or the per-city numbers and the pooled number
+    describe different data and cannot be reconciled.
+
+    Each subset gets its own COCO file because COCOEvaluator scores predictions
+    against the ground truth of the dataset it was handed. Pointing four
+    evaluators at the pooled ground truth would count every other city buildings
+    as missed detections.
+    """
+    from detectron2.data.datasets import register_coco_instances
+
+    coco_dir = coco_dir or os.path.join(root, "coco")
+    pooled = os.path.join(coco_dir, "pooled_val.json")
+    if not os.path.isfile(pooled):
+        return []
+    with open(pooled) as f:
+        d = json.load(f)
+
+    registered = []
+    for city in CITIES:
+        out = os.path.join(coco_dir, "pooled_val_%s.json" % city)
+        if not os.path.isfile(out):
+            imgs = [im for im in d["images"] if im.get("aoi") == city]
+            keep = {im["id"] for im in imgs}
+            sub = {
+                "info": {"description": "pooled val subset, %s" % city},
+                "images": imgs,
+                "annotations": [a for a in d["annotations"] if a["image_id"] in keep],
+                "categories": d["categories"],
+            }
+            if not imgs:
+                continue
+            with open(out, "w") as f:
+                json.dump(sub, f)
+        name = "%s_val_%s" % (prefix, city)
+        register_coco_instances(name, {"thing_classes": ["building"]}, out, root)
+        registered.append(name)
+    return registered
+
+
 # --------------------------------------------------------------------------
 # mapper
 # --------------------------------------------------------------------------

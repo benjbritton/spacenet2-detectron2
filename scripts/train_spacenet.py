@@ -1,0 +1,250 @@
+#!/usr/bin/env python
+"""Train Mask R-CNN R50-FPN on pooled SpaceNet 2, tracked in W&B.
+
+Run inside the m2/detectron2 container -- see scripts/run.sh.
+
+    ./scripts/run.sh python scripts/train_spacenet.py --smoke
+    ./scripts/run.sh python scripts/train_spacenet.py
+    ./scripts/run.sh python scripts/train_spacenet.py --stretch per_city --seed 1
+
+THREE THINGS THIS DOES THAT train_balloon.py DOES NOT
+-----------------------------------------------------
+1. Loads imagery through SpaceNetMapper. The tiles are 11-bit values in UInt16
+   containers; detectron2 stock read path would hand raw UInt16 to code that
+   assumes 8-bit. No 8-bit files exist on disk -- the stretch happens at load.
+2. Evaluates per AOI as well as pooled, from the same val tiles, so the
+   per-city question is answered without training four models.
+3. Seeds explicitly. cfg.SEED is inert in this codebase: detectron2 reads it only
+   inside default_setup(), which these scripts do not call. Setting SEED in the
+   YAML and nothing else would look correct and do nothing.
+"""
+
+import argparse
+import json
+import os
+import sys
+import time
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+import torch
+from detectron2 import model_zoo
+from detectron2.config import get_cfg
+from detectron2.data import build_detection_test_loader, build_detection_train_loader
+from detectron2.evaluation import inference_on_dataset
+from detectron2.utils.env import seed_all_rng
+from detectron2.utils.logger import setup_logger
+
+from detlab.datasets import spacenet
+from detlab.trainer import LabTrainer
+
+BASE = "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
+REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+CONFIG = os.path.join(REPO, "configs", "spacenet2_mask_rcnn_R50_FPN.yaml")
+STRETCH_JSON = os.path.join(REPO, "configs", "spacenet2_stretch.json")
+
+
+class SpaceNetTrainer(LabTrainer):
+    """LabTrainer with the 16-bit load path wired into both loaders.
+
+    `stretch` is a class attribute because detectron2 calls build_train_loader
+    and build_test_loader as classmethods, with no route for passing an instance
+    through. Set it before constructing the trainer.
+    """
+
+    stretch = None
+
+    @classmethod
+    def build_train_loader(cls, cfg):
+        return build_detection_train_loader(
+            cfg, mapper=spacenet.SpaceNetMapper(cfg, True, cls.stretch))
+
+    @classmethod
+    def build_test_loader(cls, cfg, dataset_name):
+        return build_detection_test_loader(
+            cfg, dataset_name,
+            mapper=spacenet.SpaceNetMapper(cfg, False, cls.stretch))
+
+
+def parse_args():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--stretch", choices=["per_image", "per_city"],
+                   default="per_image",
+                   help="per_image matches SpaceNet published practice and is "
+                        "the baseline-comparable run; per_city is the experiment")
+    p.add_argument("--seed", type=int, default=None,
+                   help="training RNG; overrides SEED in the config. NOT the "
+                        "split seed, which is fixed in spacenet2_split.json")
+    p.add_argument("--iters", type=int, default=None)
+    p.add_argument("--eval-period", type=int, default=None)
+    p.add_argument("--batch", type=int, default=None, help="SOLVER.IMS_PER_BATCH")
+    p.add_argument("--lr", type=float, default=None, help="SOLVER.BASE_LR")
+    p.add_argument("--data-root", default=os.path.join(REPO, "data", "spacenet2"))
+    p.add_argument("--output", default=None)
+    p.add_argument("--project",
+                   default=os.environ.get("WANDB_PROJECT", "benjbritton_FA26"))
+    p.add_argument("--run-name", default=None)
+    p.add_argument("--offline", action="store_true")
+    p.add_argument("--no-wandb", action="store_true")
+    p.add_argument("--skip-per-aoi", action="store_true",
+                   help="pooled evaluation only")
+    p.add_argument("--no-eval", action="store_true",
+                   help="skip evaluation entirely (DATASETS.TEST emptied). For "
+                        "memory and throughput probes, where a 3 minute pass "
+                        "over 2118 val tiles measures nothing of interest")
+    p.add_argument("--smoke", action="store_true",
+                   help="500 iters, no periodic eval -- plumbing check")
+    return p.parse_args()
+
+
+def build_cfg(args):
+    cfg = get_cfg()
+    cfg.merge_from_file(model_zoo.get_config_file(BASE))
+    cfg.merge_from_file(CONFIG)
+    cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(BASE)
+
+    if args.smoke:
+        cfg.SOLVER.MAX_ITER = 500
+        cfg.SOLVER.STEPS = []
+        cfg.TEST.EVAL_PERIOD = 0
+        cfg.SOLVER.CHECKPOINT_PERIOD = 100000   # nothing mid-run
+        cfg.OUTPUT_DIR = os.path.join(REPO, "outputs", "spacenet2_smoke")
+    if args.iters is not None:
+        cfg.SOLVER.MAX_ITER = args.iters
+        cfg.SOLVER.STEPS = [s for s in cfg.SOLVER.STEPS if s < args.iters]
+    if args.eval_period is not None:
+        cfg.TEST.EVAL_PERIOD = args.eval_period
+    if args.batch is not None:
+        cfg.SOLVER.IMS_PER_BATCH = args.batch
+    if args.lr is not None:
+        cfg.SOLVER.BASE_LR = args.lr
+    if args.seed is not None:
+        cfg.SEED = args.seed
+    if args.no_eval:
+        cfg.DATASETS.TEST = ()
+        cfg.TEST.EVAL_PERIOD = 0
+    if args.output is not None:
+        cfg.OUTPUT_DIR = args.output
+    if not os.path.isabs(cfg.OUTPUT_DIR):
+        cfg.OUTPUT_DIR = os.path.join(REPO, cfg.OUTPUT_DIR)
+    return cfg
+
+
+def evaluate_per_aoi(cfg, model, names):
+    out = {}
+    for name in names:
+        folder = os.path.join(cfg.OUTPUT_DIR, "inference", name)
+        evaluator = SpaceNetTrainer.build_evaluator(cfg, name, folder)
+        loader = SpaceNetTrainer.build_test_loader(cfg, name)
+        out[name] = inference_on_dataset(model, loader, evaluator)
+    return out
+
+
+def main():
+    args = parse_args()
+    setup_logger()
+
+    if args.offline:
+        os.environ["WANDB_MODE"] = "offline"
+
+    # Registration must precede cfg use: DATASETS.TRAIN names have to resolve.
+    os.chdir(REPO)
+    pooled = spacenet.register_pooled(root=args.data_root)
+    # --no-eval must mean no evaluation at all. Emptying DATASETS.TEST silences
+    # the pooled pass but not this one, and a memory probe that then spends five
+    # minutes on per-AOI evaluation measures nothing anybody asked for.
+    per_aoi = ([] if (args.skip_per_aoi or args.no_eval)
+               else spacenet.register_val_per_aoi(root=args.data_root))
+    print("registered pooled :", pooled)
+    print("registered per-AOI:", per_aoi)
+
+    cfg = build_cfg(args)
+    os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
+
+    # Explicit. cfg.SEED is read by default_setup() only, which is not called.
+    seed_all_rng(None if cfg.SEED < 0 else cfg.SEED)
+    print("seed          :", "random" if cfg.SEED < 0 else cfg.SEED)
+    print("stretch       :", args.stretch)
+    print("iterations    :", cfg.SOLVER.MAX_ITER,
+          "| batch", cfg.SOLVER.IMS_PER_BATCH, "| lr", cfg.SOLVER.BASE_LR)
+    print("filter empty  :", cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS,
+          "(False keeps the 2069 no-building tiles)")
+
+    SpaceNetTrainer.stretch = spacenet.Stretch.from_json(STRETCH_JSON, args.stretch)
+
+    run = None
+    if not args.no_wandb:
+        import wandb
+
+        with open(os.path.join(REPO, "configs", "spacenet2_split.json")) as f:
+            split = json.load(f)
+        run = wandb.init(
+            project=args.project,
+            name=args.run_name or "spacenet2-r50fpn-%s-seed%d-%s" % (
+                args.stretch, cfg.SEED, time.strftime("%Y%m%d-%H%M%S")),
+            config={
+                "base_config": BASE,
+                "dataset": "SpaceNet2 pooled (4 AOIs)",
+                "stretch": args.stretch,
+                "seed": cfg.SEED,
+                "split_seed": split["split_seed"],
+                "val_frac": split["val_frac"],
+                "max_iter": cfg.SOLVER.MAX_ITER,
+                "base_lr": cfg.SOLVER.BASE_LR,
+                "ims_per_batch": cfg.SOLVER.IMS_PER_BATCH,
+                "roi_batch_per_image": cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE,
+                "filter_empty": cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS,
+                "amp": cfg.SOLVER.AMP.ENABLED,
+                "gpu": torch.cuda.get_device_name(0),
+                "torch": torch.__version__,
+            },
+        )
+        print("W&B run:", run.url)
+
+    trainer = SpaceNetTrainer(cfg)
+    trainer.resume_or_load(resume=False)
+    trainer.train()
+
+    # NOT torch.cuda.max_memory_allocated() as a training peak: LabTrainer
+    # attaches TorchMemoryStats(period=100), which calls
+    # reset_peak_memory_stats(), so this counter only covers whatever happened
+    # since the last reset. The true training peak is the max_mem field in the
+    # d2.utils.events lines of the log.
+    print("VRAM allocated since last TorchMemoryStats reset: %.2f GiB"
+          % (torch.cuda.max_memory_allocated() / 1024 ** 3))
+
+    # EvalHook.after_train() already evaluated DATASETS.TEST once training
+    # finished -- hooks.py:74, unconditional on a completed run. Calling test()
+    # here as well ran the whole 2118 tile val set a second time for nothing,
+    # about 3 minutes per run. DefaultTrainer stashes the hook result, and
+    # detectron2 own train() reads the same attribute, so this is its intended
+    # use rather than reaching into internals.
+    results = getattr(trainer, "_last_eval_results", None)
+    if results is None:
+        results = SpaceNetTrainer.test(cfg, trainer.model)
+    print("pooled eval:", results)
+    if run is not None:
+        run.summary.update({"final/%s" % k: v
+                            for k, v in results.get("segm", {}).items()})
+
+    if per_aoi:
+        print("=== per-AOI ===")
+        for name, res in evaluate_per_aoi(cfg, trainer.model, per_aoi).items():
+            segm = res.get("segm", {})
+            print("  %-28s segm AP %6.2f  APs %6.2f  APm %6.2f  APl %6.2f"
+                  % (name, segm.get("AP", float("nan")),
+                     segm.get("APs", float("nan")),
+                     segm.get("APm", float("nan")),
+                     segm.get("APl", float("nan"))))
+            if run is not None:
+                city = name.split("_val_")[-1]
+                run.summary.update({"final/%s/%s" % (city, k): v
+                                    for k, v in segm.items()})
+
+    print("artifacts in:", cfg.OUTPUT_DIR)
+    if run is not None:
+        run.finish()
+
+
+if __name__ == "__main__":
+    main()

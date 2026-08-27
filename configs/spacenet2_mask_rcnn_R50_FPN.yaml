@@ -41,21 +41,39 @@ MODEL:
     BATCH_SIZE_PER_IMAGE: 512
 
 SOLVER:
-  IMS_PER_BATCH: 8
+  # 16 measured, not assumed. Throughput PEAKS here and falls away on both sides:
+  #
+  #     batch    s/iter   images/sec   data_time
+  #         8     0.449         17.8       0.027
+  #        16     0.839         19.1       0.057
+  #        32     1.729         18.5       0.176
+  #        48     2.747         17.5       0.302
+  #
+  # Batch 48 is slower per image than batch 8 and reserves 24.2 GB of 24.6. The
+  # cause is data_time: the 8 loader workers cannot feed the 16-bit read and
+  # percentile stretch fast enough at large batch, so the GPU starves. Memory was
+  # never the binding constraint -- input pipeline throughput was.
+  #
+  # 16 is also detectron2 own COCO recipe, so the run stays comparable to
+  # published numbers rather than being a configuration nobody else has run.
+  IMS_PER_BATCH: 16
 
-  # Linear scaling from the COCO 3x default (0.02 at batch 16). Not tuned. If the
-  # first run diverges early this is the first thing to halve.
-  BASE_LR: 0.01
+  # Linear scaling from batch 8 at 0.01, which is also the detectron2 COCO
+  # default at this batch size. Not tuned. If loss diverges early, halve it.
+  BASE_LR: 0.02
   WARMUP_ITERS: 1000
 
-  # 8474 training tiles / 8 per batch = 1059 iterations per epoch, so 12000 is
-  # roughly 11.3 epochs. The balloon run converged at 83% of its schedule and the
-  # back half of the LR schedule did most of the small-object work, which matters
-  # more here: SpaceNet is 37.4% small objects against balloon's 6%.
-  MAX_ITER: 12000
-  STEPS: (8000, 11000)
+  # 8474 training tiles / 16 per batch = 530 iterations per epoch, so 6000 is
+  # roughly 11.3 epochs -- the same epoch budget as the batch 8 schedule it
+  # replaces, so the two are comparable. The balloon run converged at 83% of its
+  # schedule, and the back half of the LR schedule did most of the small-object
+  # work, which matters more here: SpaceNet is 37.4% small objects against
+  # balloon 6%, and the smoke run small-object AP (18.0) is already the weakest
+  # number on the board.
+  MAX_ITER: 6000
+  STEPS: (4000, 5500)
 
-  CHECKPOINT_PERIOD: 2000
+  CHECKPOINT_PERIOD: 1000
 
   AMP:
     ENABLED: True         # fp16. bf16 is available on the A5000 but not on the
@@ -63,7 +81,11 @@ SOLVER:
                           # config runnable on both.
 
 TEST:
-  EVAL_PERIOD: 2000       # 2118 val tiles per evaluation -- not free
+  # 1000 gives six points on the AP trajectory across the run, at about 3.2
+  # minutes each for 2118 val tiles. The balloon runs showed the interesting
+  # behaviour clustered around the LR decay, which lands at 4000 here, so a
+  # coarser period would sample straight past it.
+  EVAL_PERIOD: 1000
 
 INPUT:
   MASK_FORMAT: "polygon"
