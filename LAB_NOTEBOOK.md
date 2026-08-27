@@ -285,6 +285,12 @@ mid-range sample from a metric spanning 7.05 to 26.19.
 Stated properly: *LR decay disproportionately benefits small objects; the effect
 is directionally robust but its size is not estimable from this dataset.*
 
+> **Superseded 2026-08-27.** Even that guarded statement does not survive
+> SpaceNet. On 8474 training tiles the LR decay moved `segm/APs` by 0.62 points,
+> 2.4% relative, against 8.5x on balloon. The effect was an artefact of a 61
+> image training set and a 13 image val set, not a property of LR schedules.
+> See the 2026-08-27 entry. Do not carry this finding into a blog post.
+
 ### Why `APs` cannot be estimated here: three instances
 
 Instance-size census of the balloon annotations, by COCO thresholds
@@ -340,3 +346,243 @@ W&B runs `balloon-a5000-seed0/1/2` and `balloon-a5000` in project
   commits were rewritten from `brittobj@mail.uc.edu` to
   `benjaminbritton@yahoo.com` before the first push, so they attribute to the
   GitHub account; git identity is now set globally to match.
+
+
+## 2026-08-27 - SpaceNet 2 baseline (Milestone B)
+
+### Data
+
+26 GB, 10592 tiles, all four AOIs, PS-RGB imagery plus building footprints.
+Deliberately NOT downloaded:
+
+- `test_public/` -- imagery only, no `geojson_buildings` and no solutions csv.
+  The competition test labels were never released, so it cannot be scored
+  locally. 19 GiB for nothing.
+- `MS/ PAN/ PS-MS/` -- 8-band multispectral and panchromatic, which a 3-channel
+  detectron2 baseline cannot consume. Another 32 GiB.
+
+The bucket is requester-pays, so this billed to the AWS account: about 2.30 USD.
+Downloading everything would have been roughly 7.20 USD and 76 GiB for no gain.
+
+### The imagery is 11-bit, and that decides the load path
+
+Across all 10592 tiles, every channel in every AOI tops out below 2047, and
+AOI_2_Vegas green reaches exactly 2047 = 2^11 - 1. This is 11-bit WorldView-3
+radiometry stored in a 16-bit container, occupying 3.1% of the nominal range.
+
+Consequence, measured not estimated: a naive divide-by-256 produces a tile whose
+maximum value is **6 out of 255**. It would train, converge, and quietly feed the
+network a near-black image. The p2-p98 windows also differ about 3x between
+cities (Paris R 126-464, Vegas R 151-1038), so one global constant would
+misexpose entire AOIs.
+
+**No 8-bit files are written.** The stretch happens in the mapper at load time,
+so the georeferenced UInt16 GeoTIFFs stay the only copy on disk. `data_time` is
+0.057 s against a 0.839 s step at batch 16 -- under 7% -- so writing derivatives
+would have bought nothing and created a second copy to drift out of sync.
+
+Two modes exist because there is no single canonical answer: `per_image`
+percentile (what the SpaceNet write-ups describe, the baseline-comparable run)
+and `per_city` constants from `scripts/spacenet_stats.py` (the experiment, which
+keeps absolute brightness comparable across tiles of one city). This run used
+`per_image`.
+
+### Solaris cannot be run
+
+The plan names Solaris as the reference implementation to reproduce. It is not
+installable. Last commit to `main` is 2021-04-29; CosmiQ Works folded into IQT
+Labs in March 2021. `requirements.txt` pins `tensorflow==1.13.1` (Python <= 3.7,
+against our 3.11), `pyyaml==5.2` (will not build against modern Cython), and a
+`git://` dependency, a protocol GitHub permanently disabled in March 2022 -- so
+`pip install -r requirements.txt` fails before reaching anything else.
+
+**Milestone B is therefore reproducing the published method and numbers, not the
+published code.** Worth raising with the advisor rather than explaining in
+December.
+
+### Converter, audited against real data
+
+`geojson_to_coco.py` was written in August against a format description. Running
+it against real files found one crash and three gaps:
+
+- **Latent crash.** SpaceNet footprints carry a Z ordinate, so
+  `for x, y in part.exterior.coords` raised `ValueError` on the first real tile.
+- **One-directional orphan reporting.** Only images-without-labels were reported,
+  but the case that occurs is the reverse: AOI_2_Vegas ships 3851 labels against
+  3850 images, and `img1000` was being dropped in silence.
+- **Split polygons became separate buildings.** Clipping at the tile edge and
+  `make_valid` both split a polygon, and each piece was emitted as its own
+  annotation -- 1630 phantom instances across the four AOIs. Now grouped: one
+  footprint, one annotation, bbox spanning all pieces, area summed.
+- Overlay renders confirmed the geo-to-pixel transform, which counts cannot: a
+  wrong transform produces the right number of correctly-shaped polygons in the
+  wrong place.
+
+Result: 10592 images, 218681 instances, 2069 empty tiles kept, all EPSG:4326.
+Retention 99.48-99.83%, the remainder sub-pixel edge fragments.
+
+**Area buckets: 37.4% small, 58.6% medium, 4.0% large** -- the inverse of balloon
+(6% / 34% / 60%). Small-object behaviour dominates headline AP here.
+
+### Split
+
+80/20 stratified within each AOI, then pooled. A global shuffle would leave each
+city val share to chance, and the small AOIs are both the likeliest to be
+under-represented and the least stable.
+
+| AOI | train | val | val instances |
+|---|---|---|---|
+| Vegas | 3080 | 770 | 22250 |
+| Paris | 918 | 230 | 3048 |
+| Shanghai | 3666 | 916 | 13388 |
+| Khartoum | 810 | 202 | 4802 |
+| pooled | 8474 | 2118 | 43488 |
+
+Membership is written to `configs/spacenet2_split.json` and **that file, not the
+seed, is the authority**. The split seed is not the training seed: `cfg.SEED`
+varies between runs to measure variance, the split must not.
+
+**Known limitation.** Adjacent chips share street grid, roof materials, sun angle
+and acquisition, so a random tile split puts near neighbours on both sides and
+val scores are optimistic against genuinely unseen ground. The published
+baselines split the same way, so this is the comparable choice, but it must be
+stated. A spatially blocked split would quantify the gap.
+
+### Batch size: measured, and the answer was not the obvious one
+
+The A5000 has 24 GB and batch 8 used 3.7 GB, which looked like an invitation to
+scale up. It was not.
+
+| batch | s/iter | images/sec | data_time |
+|---|---|---|---|
+| 8 | 0.449 | 17.8 | 0.027 |
+| **16** | 0.839 | **19.1** | 0.057 |
+| 32 | 1.729 | 18.5 | 0.176 |
+| 48 | 2.747 | 17.5 | 0.302 |
+
+**Throughput peaks at 16 and falls away on both sides.** Batch 48 is slower per
+image than batch 8 and reserves 24.2 of 24.6 GB. The cause is `data_time`, up 11x
+from batch 8 to 48: the 8 loader workers cannot feed the 16-bit read and
+percentile stretch fast enough, so the GPU starves. **Memory was never the
+binding constraint; the input pipeline was.** "Only 15% of the card is used" was
+about memory, not compute -- the SMs were already near saturation at batch 8.
+
+16 is also the detectron2 COCO recipe, so the run stays comparable rather than
+being a configuration nobody has published.
+
+### What the smoke run caught
+
+- `EvalHook.after_train()` evaluates unconditionally once training completes
+  (`hooks.py:74`), so the explicit `test()` call after `train()` ran all 2118 val
+  tiles a **second** time -- about 3 minutes per run, on every run.
+- `--no-eval` emptied `DATASETS.TEST` but did not stop the per-AOI block, so a
+  memory probe spent five minutes evaluating city subsets.
+- The peak-VRAM report was meaningless: `LabTrainer` attaches
+  `TorchMemoryStats(period=100)`, which calls `reset_peak_memory_stats()`, so
+  `max_memory_allocated()` only covers iterations since the last reset.
+
+None of these would have failed loudly. All three were found by running 500
+iterations before committing to 105 minutes.
+
+### Results
+
+Mask R-CNN R50-FPN, COCO-pretrained, batch 16, LR 0.02, 6000 iterations
+(11.3 epochs), fp16, seed 0, `per_image` stretch. **1:45:02** wall, 17:14 of it
+in evaluation. Peak ~7 GB.
+
+| iter | segm/AP | segm/APs | segm/APm | segm/APl | bbox/AP |
+|---|---|---|---|---|---|
+| 999 | 44.28 | 21.23 | 56.02 | 50.87 | 46.57 |
+| 1999 | 46.14 | 22.80 | 57.83 | 52.37 | 49.65 |
+| 2999 | 48.17 | 25.47 | 59.81 | 55.69 | 51.05 |
+| 3999 | 48.88 | 25.82 | 60.53 | 56.66 | 50.67 |
+| 4999 | 49.39 | 26.38 | 60.93 | 58.22 | 52.71 |
+| 6000 | **49.44** | 26.44 | 60.91 | 58.45 | **52.76** |
+
+Converged near 5000 of 6000 -- the same slightly-too-long schedule balloon had.
+
+### SpaceNet F1 versus the published reference
+
+COCO mAP and the SpaceNet score are not convertible, and the published numbers
+are F1 at IoU 0.5. `src/detlab/spacenet_f1.py` implements it: greedy
+score-ordered matching, each ground truth claimable once, micro-averaged.
+
+The operating point is the real difference from AP. Competitors submitted fixed
+polygon sets with no confidence scores, so each published F1 is one point a team
+tuned for itself. Reporting at an arbitrary threshold understates the model;
+reporting only the best over all thresholds overstates it, because that threshold
+was chosen on the set being scored. Here the distinction barely matters -- best
+F1 0.7935 at threshold 0.532 against 0.7923 at a fixed 0.5 -- but that is a
+finding, not a licence to stop reporting both.
+
+| AOI | ours | XD_XD (2017 winner) |
+|---|---|---|
+| Vegas | 0.8947 | 0.885 |
+| Paris | 0.7773 | 0.745 |
+| Shanghai | 0.6862 | 0.597 |
+| Khartoum | 0.6267 | 0.544 |
+| **macro** | **0.7462** | **0.693** |
+
+**This is not a claim of beating the 2017 winner.** Three differences all favour
+us: XD_XD was scored on the withheld competition test set while this is a val
+split from the training data; the random tile split is spatially autocorrelated
+and therefore optimistic; and IoU here is computed on rasterised masks rather
+than georeferenced polygons.
+
+Note also that the pooled micro-averaged F1 of 0.7935 is NOT the number to
+compare -- Vegas alone is 51% of val instances and is the easiest city, so micro
+averaging weights the easy case. The macro average of 0.7462 is the comparable
+figure.
+
+**What is a real signal:** the city difficulty ordering reproduces XD_XD exactly,
+Vegas >> Paris > Shanghai > Khartoum, with similar gaps. The pipeline recovers
+the known difficulty structure of this dataset even if the absolute level is
+optimistic.
+
+Milestone B stated honestly: the plan asks for mAP@[0.5:0.95] within 20% of a
+published reference, and **no published mAP for SN2 exists**. Substituting F1,
+the metric the reference actually reports, the target is >= 0.554 against 0.7462
+achieved.
+
+### The balloon LR-decay finding does not generalize
+
+The 2026-08-22 entry claimed the back half of the LR schedule does most of the
+small-object work, and generalized it in as many words to "SpaceNet buildings and
+any small-target detection". Tested here, it fails.
+
+LR decays at iteration 4000. `segm/APs` went 25.82 -> 26.44: **0.62 points, 2.4%
+relative**, against 8.5x on balloon. Most of the small-object gain happened early,
+21.23 -> 25.47 across the first 3000 iterations.
+
+The effect was an artefact of 61 training images and a 13-image val set where
+`APs` rested on three instances. Two rounds of scrutiny have now cost that
+finding first its magnitude and then its generality. The honest residue: **do not
+extrapolate from a toy dataset**, and check the per-bucket instance count before
+reading a per-bucket metric.
+
+### Artifacts
+
+```
+outputs/spacenet2_r50fpn/
+  model_best.pth, model_final.pth
+  metrics.json
+  inference/instances_predictions.pth          pooled val predictions
+  inference/spacenet2_val_AOI_*/               per-AOI predictions
+configs/spacenet2_split.json                   split membership (authority)
+configs/spacenet2_stretch.json                 per-city percentile constants
+```
+
+`scripts/score_f1.py` scores F1 from saved predictions, so a finished run can be
+re-scored without another inference pass.
+
+### Open
+
+- **Threshold selection.** F1 is currently reported at a threshold chosen on the
+  scored set. For the write-up, pick it on train and report at that fixed value.
+- **Spatially blocked split**, to quantify the autocorrelation inflation.
+- **`per_city` stretch comparison**, paired by seed against `per_image`.
+- **Seed variance.** One run at 1:45 each; three would establish whether the
+  per-city gaps are larger than run-to-run noise. Needed before the `per_city`
+  comparison can be interpreted at all.
+- **Khartoum at 0.627 against Vegas 0.895.** Worth understanding rather than
+  reporting.
