@@ -1,0 +1,81 @@
+# SpaceNet 2 building detection -- pooled across all four AOIs.
+#
+# Overrides applied ON TOP OF the model-zoo config
+# COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml.
+# Only deltas live here so the base stays traceable to upstream.
+#
+# POOLED, NOT PER-CITY. Khartoum has 810 training tiles and Paris 918; most of
+# what a detector learns early (edges, roof texture, shadow) is shared across all
+# four AOIs, so a per-city model would relearn it from a tenth of the data while
+# still seeing every one of its own examples. Per-city performance is reported
+# from the stratified val split instead, which answers the same question without
+# training four models. This also matches the milestone wording -- "multi-city
+# building detection" -- and published SN2 numbers, which are multi-city.
+
+DATASETS:
+  TRAIN: ("spacenet2_train",)
+  TEST: ("spacenet2_val",)
+
+DATALOADER:
+  NUM_WORKERS: 8          # 36c/72t host; the 16-bit read and stretch happen here
+
+  # 2069 of 10592 tiles contain no buildings, and detectron2 DROPS such images by
+  # default. That would silently delete 20% of the dataset, and 45% of Paris.
+  # They are legitimate negatives: the SpaceNet metric punishes false positives,
+  # and a model never shown empty ground has no way to learn what is not a
+  # building.
+  FILTER_EMPTY_ANNOTATIONS: False
+
+MODEL:
+  ROI_HEADS:
+    NUM_CLASSES: 1        # building (the COCO head of 80 is replaced)
+
+    # Left at the detectron2 default of 512, unlike the balloon config which used
+    # 128. The August ROI experiment found that raising this made foreground
+    # imbalance WORSE (3.9:1 -> 11.7:1 going 128 -> 512), because the number of
+    # available positives is fixed by image content and every extra slot fills
+    # with background. That does not transfer here: balloon averages ~1 instance
+    # per image, SpaceNet averages 20.7, so the positives to fill those slots
+    # actually exist. Keeping the default also keeps the run comparable to
+    # published baselines. Worth re-instrumenting rather than assuming.
+    BATCH_SIZE_PER_IMAGE: 512
+
+SOLVER:
+  IMS_PER_BATCH: 8
+
+  # Linear scaling from the COCO 3x default (0.02 at batch 16). Not tuned. If the
+  # first run diverges early this is the first thing to halve.
+  BASE_LR: 0.01
+  WARMUP_ITERS: 1000
+
+  # 8474 training tiles / 8 per batch = 1059 iterations per epoch, so 12000 is
+  # roughly 11.3 epochs. The balloon run converged at 83% of its schedule and the
+  # back half of the LR schedule did most of the small-object work, which matters
+  # more here: SpaceNet is 37.4% small objects against balloon's 6%.
+  MAX_ITER: 12000
+  STEPS: (8000, 11000)
+
+  CHECKPOINT_PERIOD: 2000
+
+  AMP:
+    ENABLED: True         # fp16. bf16 is available on the A5000 but not on the
+                          # 2080 Ti this project started on, and fp16 keeps the
+                          # config runnable on both.
+
+TEST:
+  EVAL_PERIOD: 2000       # 2118 val tiles per evaluation -- not free
+
+INPUT:
+  MASK_FORMAT: "polygon"
+
+  # MIN_SIZE_TRAIN/TEST are left at the detectron2 defaults (640-800 train, 800
+  # test) even though tiles are natively 650. The upsampling is deliberate: 37.4%
+  # of instances fall in the COCO "small" bucket, and it matches the scale the
+  # COCO-pretrained backbone expects.
+
+# Training RNG only. This is NOT the split seed -- the split is fixed in
+# configs/spacenet2_split.json and must stay fixed across every run, or seed
+# variance and split variance become inseparable.
+SEED: 0
+
+OUTPUT_DIR: "outputs/spacenet2_r50fpn"

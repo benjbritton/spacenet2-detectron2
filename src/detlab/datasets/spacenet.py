@@ -157,6 +157,32 @@ def register(root="data/spacenet2", coco_dir=None, prefix="spacenet2"):
     return registered
 
 
+def register_pooled(root="data/spacenet2", coco_dir=None, prefix="spacenet2"):
+    """Register the pooled train and val sets produced by scripts/make_split.py.
+
+    file_name inside pooled_{train,val}.json is stored relative to `root`
+    (AOI_3_Paris/PS-RGB/....tif), so one image_root spans all four AOIs. That is
+    the whole reason the split script rewrites the paths: register_coco_instances
+    takes a single image root, and a pooled dataset lives in four directories.
+
+    Each image record carries its "aoi" through, so per-city AP can be broken out
+    of a single pooled evaluation without training or evaluating four times.
+    """
+    from detectron2.data.datasets import register_coco_instances
+
+    coco_dir = coco_dir or os.path.join(root, "coco")
+    registered = []
+    for split in ("train", "val"):
+        json_path = os.path.join(coco_dir, "pooled_%s.json" % split)
+        if not os.path.isfile(json_path):
+            continue
+        name = "%s_%s" % (prefix, split)
+        register_coco_instances(name, {"thing_classes": ["building"]},
+                                json_path, root)
+        registered.append(name)
+    return registered
+
+
 # --------------------------------------------------------------------------
 # mapper
 # --------------------------------------------------------------------------
