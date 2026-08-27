@@ -36,6 +36,7 @@ from detectron2.utils.env import seed_all_rng
 from detectron2.utils.logger import setup_logger
 
 from detlab.datasets import spacenet
+from detlab.spacenet_f1 import SpaceNetF1Evaluator
 from detlab.trainer import LabTrainer
 
 BASE = "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
@@ -53,6 +54,25 @@ class SpaceNetTrainer(LabTrainer):
     """
 
     stretch = None
+
+    @classmethod
+    def build_evaluator(cls, cfg, dataset_name, output_folder=None):
+        """COCO AP and SpaceNet F1 together, from one inference pass.
+
+        They measure different things and Milestone B needs both: COCO mAP is
+        what detectron2 reports and what the balloon work is comparable to, while
+        published SpaceNet numbers are F1 at IoU 0.5. Running both in one
+        DatasetEvaluators costs one extra mask IoU per prediction rather than a
+        second pass over 2118 tiles.
+        """
+        from detectron2.evaluation import DatasetEvaluators
+
+        if output_folder is None:
+            output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
+        return DatasetEvaluators([
+            LabTrainer.build_evaluator(cfg, dataset_name, output_folder),
+            SpaceNetF1Evaluator(dataset_name),
+        ])
 
     @classmethod
     def build_train_loader(cls, cfg):
@@ -226,20 +246,28 @@ def main():
     if run is not None:
         run.summary.update({"final/%s" % k: v
                             for k, v in results.get("segm", {}).items()})
+        run.summary.update({"final/f1_%s" % k: v
+                            for k, v in results.get("spacenet", {}).items()})
 
     if per_aoi:
         print("=== per-AOI ===")
         for name, res in evaluate_per_aoi(cfg, trainer.model, per_aoi).items():
             segm = res.get("segm", {})
-            print("  %-28s segm AP %6.2f  APs %6.2f  APm %6.2f  APl %6.2f"
+            sn = res.get("spacenet", {})
+            print("  %-28s segm AP %6.2f  APs %6.2f  |  F1 %5.3f @ %.2f  "
+                  "(P %5.3f R %5.3f)"
                   % (name, segm.get("AP", float("nan")),
                      segm.get("APs", float("nan")),
-                     segm.get("APm", float("nan")),
-                     segm.get("APl", float("nan"))))
+                     sn.get("f1_at_best", float("nan")),
+                     sn.get("best_threshold", float("nan")),
+                     sn.get("precision_at_best", float("nan")),
+                     sn.get("recall_at_best", float("nan"))))
             if run is not None:
                 city = name.split("_val_")[-1]
                 run.summary.update({"final/%s/%s" % (city, k): v
                                     for k, v in segm.items()})
+                run.summary.update({"final/%s/f1_%s" % (city, k): v
+                                    for k, v in sn.items()})
 
     print("artifacts in:", cfg.OUTPUT_DIR)
     if run is not None:
