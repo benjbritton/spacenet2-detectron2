@@ -28,6 +28,11 @@ def main():
     p.add_argument("--dataset", required=True)
     p.add_argument("--data-root", default="data/spacenet2")
     p.add_argument("--iou", type=float, default=0.5)
+    p.add_argument("--threshold", type=float, default=None,
+                   help="report F1 at THIS fixed score threshold. Use a value "
+                        "selected on other data: a threshold chosen on the set "
+                        "being scored is a tuned hyperparameter reported as a "
+                        "result")
     args = p.parse_args()
 
     from detectron2.data import DatasetCatalog
@@ -76,6 +81,18 @@ def main():
         print("WARNING: %d prediction records had no matching ground truth" % missing)
 
     res = sweep(records, n_gt)
+
+    if args.threshold is not None:
+        tp = sum(1 for s, ok in records if s >= args.threshold and ok)
+        fp = sum(1 for s, ok in records if s >= args.threshold and not ok)
+        prec = tp / float(tp + fp) if tp + fp else 0.0
+        rec = tp / float(n_gt) if n_gt else 0.0
+        f1 = 0.0 if prec + rec == 0 else 2 * prec * rec / (prec + rec)
+        res["f1_at_fixed"] = f1
+        res["precision_at_fixed"] = prec
+        res["recall_at_fixed"] = rec
+        res["fixed_threshold"] = args.threshold
+
     print()
     print("dataset            :", args.dataset)
     print("ground truth       :", n_gt)
@@ -86,6 +103,12 @@ def main():
     print("  precision        : %.4f" % res["precision_at_best"])
     print("  recall           : %.4f" % res["recall_at_best"])
     print("F1 at score >= 0.5 : %.4f" % res["f1_at_0.5"])
+    if args.threshold is not None:
+        print()
+        print("--- at the externally selected threshold %.3f ---" % args.threshold)
+        print("F1                 : %.4f" % res["f1_at_fixed"])
+        print("  precision        : %.4f" % res["precision_at_fixed"])
+        print("  recall           : %.4f" % res["recall_at_fixed"])
 
 
 if __name__ == "__main__":

@@ -108,6 +108,13 @@ def parse_args():
     p.add_argument("--no-wandb", action="store_true")
     p.add_argument("--skip-per-aoi", action="store_true",
                    help="pooled evaluation only")
+    p.add_argument("--eval-only", default=None, metavar="WEIGHTS",
+                   help="skip training; load these weights and evaluate. Used to "
+                        "score a finished model on a dataset it was not "
+                        "evaluated on, e.g. the train split for threshold "
+                        "selection")
+    p.add_argument("--eval-dataset", default=None,
+                   help="override DATASETS.TEST, e.g. spacenet2_train")
     p.add_argument("--no-eval", action="store_true",
                    help="skip evaluation entirely (DATASETS.TEST emptied). For "
                         "memory and throughput probes, where a 3 minute pass "
@@ -140,6 +147,10 @@ def build_cfg(args):
         cfg.SOLVER.BASE_LR = args.lr
     if args.seed is not None:
         cfg.SEED = args.seed
+    if args.eval_dataset is not None:
+        cfg.DATASETS.TEST = (args.eval_dataset,)
+    if args.eval_only is not None:
+        cfg.MODEL.WEIGHTS = args.eval_only
     if args.no_eval:
         cfg.DATASETS.TEST = ()
         cfg.TEST.EVAL_PERIOD = 0
@@ -223,6 +234,14 @@ def main():
 
     trainer = SpaceNetTrainer(cfg)
     trainer.resume_or_load(resume=False)
+    if args.eval_only:
+        # No training. resume_or_load already put cfg.MODEL.WEIGHTS into the
+        # model, so evaluate straight away rather than running a schedule.
+        results = SpaceNetTrainer.test(cfg, trainer.model)
+        print("eval-only on %s:" % (cfg.DATASETS.TEST,), results)
+        if run is not None:
+            run.finish()
+        return
     trainer.train()
 
     # NOT torch.cuda.max_memory_allocated() as a training peak: LabTrainer
