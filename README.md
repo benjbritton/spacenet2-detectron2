@@ -1,4 +1,4 @@
-# benjbritton_FA26
+# spacenet2-detectron2
 
 Multi-city building detection on SpaceNet 2, with detectron2. FA26 Independent
 Study, University of Cincinnati, Geography & GIS.

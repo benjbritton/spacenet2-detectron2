@@ -350,6 +350,11 @@ W&B runs `balloon-a5000-seed0/1/2` and `balloon-a5000` in project
   here -- what matters to the record is that the identity was unified, not what
   it was unified away from.
 
+  > **Superseded 2026-08-28.** That repository was deleted and recreated, and
+  > the identity rewritten again. Current home:
+  > `github.com/benjbritton/spacenet2-detectron2`, public. See the identity
+  > entry below.
+
 
 ## 2026-08-27 - SpaceNet 2 baseline (Milestone B)
 
@@ -1409,3 +1414,130 @@ W&B run `spacenet2-r50fpn-seed0-GRAYSCALE`.
   Vegas 2327, and the FPN anchor set is the COCO default. A proposal stage that
   cannot generate boxes at the right scale would produce exactly this failure.
 - **HSV as network input** rather than RGB, which grayscale does not address.
+
+
+## 2026-08-28 - Identity, licensing, and publication
+
+Housekeeping rather than research, recorded because two of these are the kind of
+thing that is invisible until it is expensive.
+
+### Identity unified across all history
+
+Commit authorship was `Ben Britton <permanent personal address>`. Two problems.
+The display name was one of four variants in circulation, and ORCID plus both
+published works say **Benjamin Britton** -- those are the records that cannot be
+edited casually, so everything else conforms to them rather than the reverse.
+And the personal address in public commit metadata is scraped at scale through
+the GitHub API.
+
+All 38 commits rewritten to
+`Benjamin Britton <317455538+benjbritton@users.noreply.github.com>`. The numeric
+prefix is the account id, which is what makes the noreply form attribute
+correctly; verified after publication that 38 of 38 commits resolve to the
+account. Global git config set to match, and repo-local overrides removed so
+nothing silently reintroduces the old identity.
+
+**The GitHub repository was deleted and recreated rather than force-pushed.** A
+force-push leaves the superseded commits unreachable but not gone: GitHub retains
+dangling objects and they stay retrievable by direct SHA more or less
+indefinitely. Deleting the repository destroys them with it. The URL is
+unchanged in form because a GitHub URL is just `owner/name` and the name was
+reclaimed on recreation, but the repository is a different object with a new id
+and an empty object store.
+
+The same lesson applied locally. The August rewrite had left
+`refs/original/refs/heads/master` in place -- filter-branch's automatic backup,
+holding thirteen commits under the superseded university address, unreachable
+from any branch but alive in the object store and exposed to `push --mirror` or a
+directory copy. Deleted, reflog expired, `gc --prune=now`: 230 loose objects to 0.
+**A history rewrite is not finished when the branch looks right.**
+
+### Renamed: `benjbritton_FA26` -> `spacenet2-detectron2`
+
+The original name reads as a course folder. The new one says what the repository
+contains and is what someone would search for.
+
+Note the separation this forced. Eleven files referenced the old string, but most
+were the **W&B project name**, an unrelated system where a rename would orphan
+existing run URLs -- and the 2026-08-26 entry already records what that rename
+cost. Only three references were repository identity. The W&B project stays
+`benjbritton_FA26`.
+
+### Licensing
+
+`LICENSE`: MIT, scoped explicitly in the file to `src/ scripts/ configs/ docker/`
+and the written record. It states what it does **not** cover, because the
+interesting obligation is the one that survives it: SpaceNet 2 is **CC BY-SA
+4.0**, and ShareAlike attaches to material derived from the dataset regardless of
+any MIT grant on the code.
+
+The repository had carried no attribution at all. README now records the licence,
+the requested citation (Van Etten et al. 2018, arXiv:1807.01232 -- the same paper
+the results are compared against), the access date, and a table of what is and is
+not derivative. Nothing derivative is tracked, so the published repository
+contains no dataset material. **Blog figures will**: the overlay rasters are
+derived from the imagery and carry attribution and ShareAlike with them.
+
+Also added: a third-party components table -- detectron2 Apache-2.0 at the pinned
+commit, the COCO model-zoo weights, PyTorch BSD-3, pycocotools BSD-2. None
+vendored, all fetched at build time, listed so the obligations are visible rather
+than implicit. `wandb_writer.py` is described as mirroring detectron2's
+`TensorboardXWriter` structure while being independently written against the
+public `EventWriter` interface -- "modelled on" and "derived from" carry different
+obligations and the distinction was checked rather than assumed.
+
+Two questions left open rather than answered: whether trained weights are a
+derivative work of training data is unsettled and is not asserted either way, and
+the balloon dataset ships through an MIT-licensed repository that states no
+separate terms for the images themselves. It contributes to no reported result.
+
+### Reproducibility artefacts
+
+`REPRODUCE.md`: every result and the literal command that produced it, in order,
+each with its **expected value** so a rerun can be checked rather than merely
+completed.
+
+`docker/environment.lock.txt`: the resolved package set, plus image and base
+digests. A **record, not a specification** -- the Dockerfile installs unpinned
+names except `numpy<2`, so a rebuild resolves whatever is current.
+
+One defect worth recording because it would have gone unnoticed. The first
+capture used `pip freeze`, which emitted `file:///home/conda/...` build-artifact
+paths for the 74 packages the conda-based base image installed. Unusable for
+reinstall and misleading as a record, while looking entirely normal.
+`pip list --format=freeze` gives real versions.
+
+What does **not** reproduce is stated too: the data download was interactive and
+unscripted, training is not bit-exact at fixed seed, and the 2080 Ti is gone.
+
+### `.gitignore` before publication
+
+Already sound -- no secrets, nothing untracked-and-unignored, nothing tracked
+that should not have been. Hardened defensively for a public repository:
+credentials, the remaining weight formats, editor and OS noise, and `*.tif`,
+which matters most -- a stray GeoTIFF would be both large and CC BY-SA material
+requiring attribution.
+
+Verified nothing tracked was affected before and after.
+
+### A measurement artefact worth knowing
+
+Running `git status` against the repository through the Windows `\\wsl.localhost`
+share reported seventeen modified files. From inside WSL the tree was clean. The
+difference is file-mode reporting across the SMB boundary, not content. **Check
+git state from inside the distro**, or a pre-publication audit reports changes
+that do not exist.
+
+### Two windows, one working tree
+
+Both Claude sessions on this project operate on the same directory, not on
+separate clones. This was not understood in the query window, which issued
+`git fetch && git reset --hard origin/master` as sync instructions after the
+rewrite. On a shared tree that discards whatever the other session has
+uncommitted; it was harmless here only because the tree happened to be clean.
+The process window declined to run it and said why.
+
+The tell had already appeared and been misread: a `git pull` reporting "Already
+up to date" while the other session's commits were plainly present. Recorded
+because the failure mode is silent and the correct mental model -- two writers on
+one directory, not two repositories -- changes what instructions are safe to give.
