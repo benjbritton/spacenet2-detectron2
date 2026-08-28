@@ -666,9 +666,100 @@ re-scored without another inference pass.
 - ~~Seed variance~~ -- done, three seeds. segm AP 49.504 +/- 0.088.
 - **`per_city` stretch comparison**, paired by seed against `per_image`. Now
   interpretable: the resolution is about 0.003 F1.
-- **Spatially blocked split**, to quantify the autocorrelation inflation. This is
-  the first question a peer reviewer asks about the XD_XD comparison.
+- ~~Spatially blocked split~~ -- done, see the 2026-08-28 entry. Pooled
+  inflation is about 0.4%. Per-city is unresolved and needs replicates.
 - **Khartoum at 0.627 against Vegas 0.895**, now known to be structural at
   ~200 sigma. Worth understanding rather than reporting.
 - **Milestone B remainder:** public repo and first blog post. The modelling is
   done.
+
+
+## 2026-08-28 - Spatially blocked split: the caveat, quantified
+
+### The question
+
+SpaceNet chips do not overlap, but adjacent chips share a street grid, roof
+materials, sun angle and acquisition. Under the random split almost every val
+tile has a training tile next door, so val scores flatter the model against
+genuinely unseen ground by an unmeasured amount. That was the loudest remaining
+caveat on the comparison with the published numbers.
+
+Holding out whole contiguous blocks instead of scattered tiles removes most of
+that adjacency. The difference between the two splits is the size of the
+inflation.
+
+### Block size, chosen by measurement
+
+The metric that matters is the fraction of val tiles having an 8-neighbour in
+train, so that is what was measured rather than assumed:
+
+| block size | adjacency | blocks in smallest AOI | val fraction |
+|---|---|---|---|
+| random (none) | 0.995 | -- | 20.0% |
+| 5 tiles (~1 km) | 0.485 | 96 | 20.1% |
+| **10 tiles (~2 km)** | **0.277** | **29** | **20.7%** |
+| 16 tiles (~3 km) | 0.159 | 11 | 23.5% |
+
+10 tiles is the knee: adjacency falls 73% while the val fraction holds near 20.
+At 16 tiles Paris has only 11 blocks and val overshoots to 23.5%, so val stops
+sampling the city and becomes a handful of neighbourhoods. The residual 0.277 is
+block perimeter and cannot be removed without giving up that granularity, so this
+**bounds** the inflation rather than eliminating it.
+
+Blocks are assigned by seeded shuffle, not by taking one contiguous chunk per
+city: a single chunk would hold out one neighbourhood type and measure that
+instead of generalisation.
+
+Split: 8427 train / 2165 val, against 8474 / 2118 for the random split.
+
+### Pooled result: real, and small
+
+| | random (3-seed mean) | blocked | delta | in sigma |
+|---|---|---|---|---|
+| segm AP | 49.504 +/- 0.088 | 49.179 | -0.325 | 3.7 |
+| pooled F1 | 0.7945 +/- 0.0009 | 0.7911 | -0.0034 | 3.8 |
+
+Statistically real -- and the only reason that judgement can be made is that the
+three-seed run established sigma first. **But it is 0.4% relative.** Spatial
+autocorrelation was not materially inflating the headline number.
+
+### Per-city result: it moved the wrong way, and that is the finding
+
+| AOI | random | blocked | delta |
+|---|---|---|---|
+| Vegas | 0.8952 | 0.891 | -0.004 |
+| Paris | 0.7791 | 0.795 | **+0.016** |
+| Shanghai | 0.6877 | 0.679 | -0.009 |
+| Khartoum | 0.6272 | 0.668 | **+0.041** |
+| macro | 0.7462 | 0.7583 | **+0.012** |
+
+The macro average went **up** under the harder split, driven by Khartoum gaining
+0.041 -- forty times the seed noise.
+
+The cause is that a blocked split does not only remove adjacency, it changes
+**which regions** are held out. Khartoum has 37 blocks, so a 20% val sample is
+seven or eight of them, and which particular neighbourhoods those are is itself
+high-variance. That variance is roughly +/- 0.04 per city, **an order of magnitude
+larger than the ~0.003 effect it was built to measure.**
+
+So for the small AOIs the measurement introduces more noise than the quantity
+being measured. The pooled micro figure is the trustworthy one: it aggregates
+44363 instances across four cities and averages the region-sampling variance
+away.
+
+Settling the per-city question properly needs three or four blocked splits with
+different block-assignment seeds, about 8 hours of GPU. The pooled answer is
+already in hand and is the one the published comparison needed.
+
+### What it changes
+
+"The random split flatters us by an unknown amount" becomes "by about 0.4% on the
+pooled metric". That is a defensible sentence. It does not rescue the comparison
+entirely -- evaluation is still on a split carved from training data rather than
+the competition withheld test set, and that remains the larger gap -- but the
+specific worry about neighbouring tiles is now bounded and small.
+
+Note also that Khartoum, the hardest city, scored **better** under the harder
+split. A caution against reading much into any single held-out sample of a small
+AOI: the same lesson the balloon work taught, arriving from the opposite
+direction.
