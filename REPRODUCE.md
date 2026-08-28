@@ -29,6 +29,72 @@ docker build -t m2/detectron2:cu124-torch251 -f docker/Dockerfile.detectron2 doc
 whether detectron2's *compiled* CUDA kernels (`nms`, `ROIAlign`) launch on the
 present architecture.
 
+### From a bare Windows machine
+
+The table above assumes WSL2, Docker and the container toolkit are already
+present. From nothing, on Windows 11 with an NVIDIA GPU:
+
+```powershell
+wsl --install -d Ubuntu-24.04          # then set a username; reboot if asked
+```
+
+```bash
+# Docker ENGINE from Docker's apt repo -- not Docker Desktop.
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER          # log out and back in
+
+# NVIDIA Container Toolkit
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+  | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
+  | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+  | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
+
+docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
+```
+
+**Do not install an NVIDIA driver inside the distro.** The Windows driver passes
+through at `/usr/lib/wsl/lib`; a Linux driver breaks that and has to be redone
+after every GPU change.
+
+**Set `networkingMode=mirrored`** in `%USERPROFILE%\.wslconfig`, then
+`wsl --shutdown`:
+
+```ini
+[wsl2]
+networkingMode=mirrored
+```
+
+This is not cosmetic. Without it, `docker pull` fails on hosts with IPv6:
+the registry CDN resolves to both families, WSL's default NAT network has no
+IPv6 route, and containerd selects the IPv6 address anyway. Disabling IPv6
+inside the distro does **not** fix it -- containerd uses Go's pure resolver,
+which bypasses glibc and `gai.conf` and queries AAAA itself. Mirrored mode gives
+the distro the host's stack, which has a working route. It also makes a listener
+inside WSL reachable from the host without `netsh portproxy`, which matters for
+remote access. See the 2026-08-21 notebook entry.
+
+Then clone the repo and build the image as above. Expect ~15 minutes for the
+CUDA extension compile and about 25 GB of disk for the image.
+
+### On a second machine with less VRAM
+
+The image is compiled `TORCH_CUDA_ARCH_LIST="7.5;8.6+PTX"`, so it runs unmodified
+on Turing (sm_75) and Ampere (sm_86) without a rebuild.
+
+VRAM is the real constraint, and it was measured rather than estimated: batch 8
+uses 3.7 GB, batch 16 peaks near 7 GB. **On an 8 GB card, use `--batch 8`.**
+Batch 16 may fit but leaves no headroom for an evaluation spike.
+
+Results at batch 8 are **not comparable** to the numbers in this repository.
+Batch 16 was chosen from a measured throughput peak and matches detectron2's COCO
+recipe; changing it changes the effective learning-rate schedule. A second
+machine at batch 8 is for development and smoke tests, not for producing
+reportable figures.
+
 **Three notes on how far this actually reproduces.**
 
 The `FROM` line names a mutable tag, not the digest above. Pinning the digest
