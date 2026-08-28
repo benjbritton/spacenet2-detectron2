@@ -3,10 +3,45 @@ data/
 outputs/
 .cache/
 wandb/
+
+# Weights and serialised state, wherever they land. outputs/ covers the normal
+# case; these catch a checkpoint written somewhere unexpected.
 *.pth
+*.pt
 *.pkl
+*.ckpt
+*.onnx
+*.safetensors
+
+# Imagery. The 26 GB of SN2 tiles live under data/, but a stray GeoTIFF written
+# to the repo root would be both large and CC BY-SA licensed material that must
+# carry attribution. No .tif is ever a source file in this project.
+*.tif
+*.tiff
+
+# Credentials. `wandb login` writes $HOME/.netrc and run.sh mounts it in, so
+# none of this belongs in the tree -- but an accidental copy must not be
+# committable either.
+.netrc
+.env
+.env.*
+*.key
+*.pem
+
 # Python
 __pycache__/
 *.py[cod]
 .venv/
 *.egg-info/
+.ipynb_checkpoints/
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
