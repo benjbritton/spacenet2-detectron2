@@ -40,8 +40,9 @@ No W&B account yet? `--offline` records locally and `wandb sync` uploads later.
 | `src/detlab/datasets/balloon.py` | Download, VIA to detectron2 conversion, registration |
 | `configs/` | Overrides layered on a model-zoo base config |
 | `scripts/run.sh` | Version-controlled docker run invocation |
-| `docker/` | Image definition |
+| `docker/` | Image definition, plus `environment.lock.txt` -- the resolved package set the results were produced with |
 | `LAB_NOTEBOOK.md` | Running record of what was done and why |
+| `REPRODUCE.md` | Every result and the literal command that produced it, with expected values |
 
 `data/`, `outputs/`, `wandb/` and checkpoints are gitignored.
 
