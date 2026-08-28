@@ -45,6 +45,43 @@ No W&B account yet? `--offline` records locally and `wandb sync` uploads later.
 
 `data/`, `outputs/`, `wandb/` and checkpoints are gitignored.
 
+## Data attribution and licensing
+
+**SpaceNet 2 (Building Detection v2)** -- imagery and building footprint labels.
+
+> The SpaceNet Dataset by SpaceNet Partners is licensed under a
+> [Creative Commons Attribution-ShareAlike 4.0 International License][cc-by-sa].
+
+Cite as:
+
+> Van Etten, A., Lindenbaum, D., & Bacastow, T.M. (2018). SpaceNet: A Remote
+> Sensing Dataset and Challenge Series. *arXiv:1807.01232*.
+
+Accessed from the [SpaceNet AWS Open Data registry][aws] on 2026-08-27
+(requester-pays bucket; PS-RGB and `geojson_buildings` for all four AOIs).
+
+**What ShareAlike means here.** CC BY-SA obligations attach to material *derived
+from the dataset*, not to independently written code. In this repo:
+
+| | derivative? |
+|---|---|
+| `data/spacenet2/coco/*.json` (converted footprints) | yes -- a reformatting of the labels |
+| exported prediction vectors, overlay rasters, figures | yes -- derived from the imagery |
+| `configs/spacenet2_split*.json` (filename lists) | membership only, no dataset content |
+| `scripts/`, `src/`, `docker/` | no -- independent code |
+
+None of the derivative material is tracked in git (`data/` and `outputs/` are
+ignored), so the repository as published contains no SpaceNet-derived content.
+**Anything derived that does get published -- overlay figures in a blog post, a
+released set of predicted footprints -- carries the attribution above and the
+ShareAlike term with it.**
+
+Whether trained model weights are a derivative work of the training data is
+unsettled and not asserted either way here.
+
+[cc-by-sa]: https://creativecommons.org/licenses/by-sa/4.0/
+[aws]: https://registry.opendata.aws/spacenet/
+
 ## Notes
 
 - **fp16, not bf16.** `SOLVER.AMP.ENABLED` uses fp16 because bf16 and TF32 are
