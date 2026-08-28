@@ -668,8 +668,10 @@ re-scored without another inference pass.
   interpretable: the resolution is about 0.003 F1.
 - ~~Spatially blocked split~~ -- done, see the 2026-08-28 entry. Pooled
   inflation is about 0.4%. Per-city is unresolved and needs replicates.
-- **Khartoum at 0.627 against Vegas 0.895**, now known to be structural at
-  ~200 sigma. Worth understanding rather than reporting.
+- ~~**Khartoum at 0.627 against Vegas 0.895**~~ -- partly answered, see the
+  second 2026-08-28 entry. Not composition (size explains 18%), not albedo
+  (Khartoum leads on it), not crowding. Tracks boundary contrast and absence of
+  cast shadow. The failure is recall, not precision.
 - **Milestone B remainder:** public repo and first blog post. The modelling is
   done.
 
@@ -763,3 +765,217 @@ Note also that Khartoum, the hardest city, scored **better** under the harder
 split. A caution against reading much into any single held-out sample of a small
 AOI: the same lesson the balloon work taught, arriving from the opposite
 direction.
+
+
+## 2026-08-28 - Why Khartoum is hard: not composition, and not albedo
+
+The per-city spread has been measured (0.895 Vegas to 0.627 Khartoum) and shown
+to be structural at ~200 sigma, but never explained. This entry explains as much
+of it as the data supports and rules out two candidate explanations, one of which
+was mine and wrong.
+
+### Getting eyes on the data first
+
+Everything below started from looking at tiles, which nothing in this project had
+done systematically since the converter QA. Two review artefacts were built:
+
+**`scripts/export_predictions_geojson.py`** -- every val prediction as
+georeferenced GeoJSON, EPSG:4326, one file per AOI, with `score`, `tile`,
+`area_px` and bbox dimensions as attributes. Ground truth likewise with `--gt`.
+Vectors rather than a rendered picture on purpose: a burned-in overlay fixes the
+score threshold at render time, whereas a definition query on `score` makes the
+threshold a slider and lets precision and recall be watched trading against each
+other on real geography. Everything down to score 0.05 is exported so the slider
+has range below the 0.544 reporting threshold. No re-inference -- it reads
+`instances_predictions.pth`.
+
+Free correctness check: the exported ground-truth counts are 22250 / 3048 /
+13388 / 4802, matching the val instance counts in the 2026-08-27 split table
+exactly. The whole pixel-to-lon/lat path is therefore consistent with what was
+scored.
+
+**`scripts/overlay_geotiff.py`** -- ground truth and predictions burned onto
+tiles and written back out **as GeoTIFFs carrying the source CRS and transform**,
+so a figure lands in place on a map instead of floating. `--png` writes a plain
+copy alongside, because Windows renders GeoTIFF unreliably and the source tiles
+are 16-bit and display black. 4 tiles per city, chosen at even intervals through
+each city's building-count ranking rather than at random: that samples the range
+(densest, two middling, and -- since 2069 tiles are empty -- always one empty
+tile, which doubles as a false-positive check on bare ground).
+
+The display stretch in both scripts is deliberately independent of the training
+preprocessing in `detlab.datasets.spacenet`. It is for eyes, not for the network,
+and conflating the two is how a rendering choice quietly becomes a claim.
+
+### Two hypotheses from looking at Khartoum
+
+1. **Albedo.** Khartoum roofs and bare ground look alike, so perhaps there is
+   little radiometric signal marking a building at all.
+2. **Relief.** Khartoum roofs are flat. A pitched roof gives two faces at
+   different brightness plus a cast shadow, boundary cues that survive even where
+   albedo does not.
+
+Both predict low recall specifically, which is consistent with Khartoum's
+reported precision 0.676 against recall 0.583.
+
+Note that (2) cuts both ways and is not obviously right a priori: pitched and
+tall buildings suffer parallax, so the visible roof is displaced from the ground
+footprint the annotation traces, while Khartoum's low single-storey compounds
+have almost none of that. Worth measuring rather than asserting.
+
+### Measured: `scripts/city_separability.py`
+
+250 tiles per city, fixed stride through the tile list rather than a random draw
+so the answer is reproducible without carrying another seed. All statistics
+computed on the uint8 image the **network** sees (`per_image` 2-98 stretch), not
+on raw DN -- the question is what the model can discriminate, and a stretch
+applied before the model changes that. Numbers were stable from 40 tiles, so they
+are not a sampling artefact.
+
+| city | F1 | cohen d | boundary | shadow | med px | % small | abut |
+|---|---|---|---|---|---|---|---|
+| Vegas | 0.895 | 1.136 | **0.435** | **1.524** | 2327 | 29.0 | 0.000 |
+| Paris | 0.779 | 0.972 | 0.314 | 0.974 | 1403 | 36.4 | 0.000 |
+| Shanghai | 0.688 | 0.724 | 0.092 | 0.555 | 1087 | 48.0 | 0.001 |
+| Khartoum | 0.627 | **1.575** | 0.315 | 0.634 | 1182 | 47.7 | 0.000 |
+
+- **cohen d** -- inside-footprint vs outside-footprint brightness in pooled sd.
+- **boundary** -- the same difference across a 2 px ring either side of the
+  footprint edge, normalised by tile sd. Pixels belonging to any *other*
+  building are excluded from the outside ring, or dense blocks measure roof
+  against roof.
+- **shadow** -- dark-pixel fraction (< mean - 1 sd) in a 2-6 px band outside
+  footprints, over the same fraction across all non-building pixels. Above 1
+  means darkness concentrates around buildings. A proxy, not a shadow detector:
+  it cannot distinguish a shadow from a dark courtyard.
+- **abut** -- fraction of footprint area whose 1 px dilation lands on a
+  different footprint.
+
+**The albedo hypothesis is wrong, and instructively so.** Khartoum has the
+*highest* roof-vs-ground separation of the four, 1.575 pooled sd, 39% above
+Vegas. Its buildings stand out radiometrically more than anyone's.
+
+But its **boundary** contrast is 0.315 against Vegas's 0.435. Khartoum roofs
+differ from the ground on average while the edge between them is soft. Detection
+lives on edges, not on means, and the two measurements separate exactly there.
+What reads by eye as "the roofs look like the dirt" is the absence of a crisp
+boundary, not an absence of tonal difference. The global statistic and the
+boundary statistic disagreeing is the useful part; either alone would have
+misled.
+
+**The relief hypothesis survives.** Shadow ratio orders with F1 (Spearman +0.80):
+Vegas 1.52, Paris 0.97, Shanghai 0.56, Khartoum 0.63. Below 1.0 means darkness is
+*less* common near buildings than elsewhere in the tile -- Shanghai and Khartoum
+have no cast-shadow signal at all, while Vegas has a strong one.
+
+**Crowding is ruled out.** Abutment is ~0 everywhere.
+
+> The printed Spearman rho for `abut_frac` is -0.80, which is noise: the
+> underlying values are 0.000, 0.000, 0.001, 0.000, so the ranking is decided by
+> rounding. A rank correlation over four cities on a near-constant column means
+> nothing, and it is recorded here only so the table is not read as evidence.
+> The same n=4 caution applies, less severely, to every rho in that block.
+
+### The size confound, and settling it: `scripts/f1_by_size.py`
+
+Khartoum is 47.7% small instances against Vegas's 29.0%, median footprint 1182 px
+against 2327. Small objects score worse everywhere, so composition alone could in
+principle produce the entire ordering. That has to be excluded before any claim
+about contrast or relief means anything.
+
+The test is to score **within** a size bucket. Ground truth is bucketed by its own
+COCO area, as pycocotools does. A false positive has no ground truth to inherit
+an area from, so it is bucketed by its own predicted mask area -- COCOeval's
+convention, stated here because it is a choice, not a law. Matching is the same
+single greedy pass at IoU 0.5 the headline F1 used; only the bookkeeping differs.
+That required `match_greedy` to expose *which* ground truth was hit, so
+`src/detlab/spacenet_f1.py` now has `match_greedy_pairs` returning indices, with
+`match_greedy` reduced to a two-line wrapper over it. One implementation of the
+matching, two views of it. The module self-test still passes.
+
+F1 within bucket, at the 0.544 reporting threshold:
+
+| bucket | Vegas | Paris | Shanghai | Khartoum |
+|---|---|---|---|---|
+| small | 0.667 | 0.573 | 0.538 | **0.423** |
+| medium | 0.980 | 0.879 | 0.792 | **0.760** |
+| large | 0.932 | 0.807 | 0.804 | **0.746** |
+
+**The city ordering survives inside every bucket**, and the gaps stay large:
+Vegas's *medium* buildings score 0.980 against Khartoum's 0.760, a 0.22 gap
+between objects of the same size class.
+
+Re-weighting each city to Vegas's size mix:
+
+| city | actual | size-standardised | delta |
+|---|---|---|---|
+| Vegas | 0.886 | 0.886 | +0.000 |
+| Paris | 0.763 | 0.786 | +0.022 |
+| Shanghai | 0.673 | 0.716 | +0.044 |
+| Khartoum | 0.609 | 0.659 | +0.050 |
+
+Composition closes 0.050 of the 0.277 Vegas-Khartoum gap, about **18%**. The
+other 82% is genuine per-bucket difficulty. Size is a real term and a minor one.
+
+Two things not to trip over. The standardisation is crude: it assumes bucket F1
+is independent of the mix, which is not exactly true. And the "actual" column
+reads 0.886 / 0.609 where the 2026-08-27 table reports 0.895 / 0.627 -- these are
+bucket-weighted averages of bucket F1s, a different arithmetic, not a
+disagreement between runs.
+
+### What this establishes
+
+- The Vegas-Khartoum gap is **not** composition (18%), **not** albedo (Khartoum
+  leads on it), and **not** crowding (absent everywhere).
+- The failure mode is **missing buildings, not inventing them**: recall is below
+  precision in all twelve city-bucket cells, most starkly Khartoum small,
+  precision 0.535 against recall 0.350. Under half the small Khartoum buildings
+  are found.
+- The two measurements that track difficulty are **boundary contrast** and
+  **shadow**, which is the relief story: flat roofs on flat ground give a soft
+  edge and no cast shadow, so the only remaining cue is a tonal difference the
+  model cannot localise precisely enough to clear IoU 0.5.
+- **Vegas medium is 0.980, effectively saturated.** Whatever headroom the
+  pipeline has left is in small objects generally and Khartoum specifically, not
+  in the bulk of the easy city. That is worth knowing before choosing what to
+  improve next.
+
+Honest limits: n=4 cities, so every rank correlation here is suggestive and
+nothing more. Size and relief are physically entangled -- small, single-storey,
+flat-roofed buildings are one building type, not two independent variables -- and
+four cities cannot separate them. The shadow proxy measures darkness near
+buildings, which a shadow causes but does not uniquely cause.
+
+### Artifacts
+
+```
+scripts/export_predictions_geojson.py
+scripts/overlay_geotiff.py
+scripts/city_separability.py
+scripts/f1_by_size.py
+src/detlab/spacenet_f1.py           match_greedy_pairs added; match_greedy wraps it
+
+outputs/vector_review/              8 GeoJSON: <aoi>_pred / <aoi>_gt, EPSG:4326
+outputs/overlay_geotiff/            16 GeoTIFF + 16 PNG, 4 tiles per city
+outputs/city_analysis/separability.json
+outputs/city_analysis/f1_by_size.json
+```
+
+Windows note: the WSL filesystem has no drive letter -- it is an `ext4.vhdx`
+exposed as the `\\wsl.localhost\Ubuntu-24.04` share while the distro is running.
+Mapped to `Z:` (`net use Z: \\wsl.localhost\Ubuntu-24.04 /persistent:yes`) so
+ArcGIS and Explorer can reach `outputs/` by path. The share dies when the distro
+stops; `wsl -d Ubuntu-24.04 -- true` revives it.
+
+### Open
+
+- **Boundary-quality decomposition.** Recall at IoU 0.5 conflates "not found" with
+  "found but outlined too loosely". Rescoring Khartoum at IoU 0.25 would split
+  those: if recall jumps, the buildings are being found and lost on geometry,
+  which points at mask head resolution rather than at detection. Cheap, no GPU.
+- **Per-city score thresholds.** 0.544 was selected once, pooled, on train and
+  applied to all four cities. No per-city optimum has been computed, so the
+  per-city table is at a threshold suboptimal for every city individually. The
+  saved per-AOI predictions make this a sweep, not a run.
+- Whether any of this is actionable. A finding that Khartoum lacks a cue is not
+  yet a change to the model.

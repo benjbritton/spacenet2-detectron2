@@ -83,19 +83,25 @@ def _gt_rles(record):
     return out
 
 
-def match_greedy(pred_rles, scores, gt_rles, thr=IOU_THRESHOLD):
-    """Greedy score-ordered matching. Returns (score, is_tp) per prediction.
+def match_greedy_pairs(pred_rles, scores, gt_rles, thr=IOU_THRESHOLD):
+    """Greedy score-ordered matching. Returns the matched GT index per
+    prediction, or -1 where the prediction matched nothing.
 
     Matching is done over ALL predictions regardless of score threshold, so that
     a threshold sweep afterwards is consistent: at threshold t, TP is the matched
     predictions scoring >= t. Re-matching per threshold could otherwise let a
     low-scoring prediction claim a ground truth that a higher-scoring one would
     have taken.
+
+    match_greedy() reduces this to (score, is_tp). Callers needing to know WHICH
+    ground truth was hit -- per-size-bucket scoring, error maps -- want the
+    indices, and there must be exactly one implementation of the matching or the
+    two views can drift apart.
     """
     if not pred_rles:
         return []
     if not gt_rles:
-        return [(s, False) for s in scores]
+        return [-1] * len(pred_rles)
 
     # iou[d, g], iscrowd all zero -> plain intersection over union.
     ious = mask_util.iou(pred_rles, gt_rles, [0] * len(gt_rles))
@@ -103,17 +109,21 @@ def match_greedy(pred_rles, scores, gt_rles, thr=IOU_THRESHOLD):
 
     order = np.argsort(-np.asarray(scores))
     taken = np.zeros(len(gt_rles), dtype=bool)
-    result = [None] * len(pred_rles)
+    result = [-1] * len(pred_rles)
     for d in order:
         row = ious[d].copy()
         row[taken] = -1.0
         g = int(np.argmax(row)) if row.size else -1
         if g >= 0 and row[g] >= thr:
             taken[g] = True
-            result[d] = (scores[d], True)
-        else:
-            result[d] = (scores[d], False)
+            result[d] = g
     return result
+
+
+def match_greedy(pred_rles, scores, gt_rles, thr=IOU_THRESHOLD):
+    """Greedy score-ordered matching. Returns (score, is_tp) per prediction."""
+    pairs = match_greedy_pairs(pred_rles, scores, gt_rles, thr)
+    return [(scores[d], g >= 0) for d, g in enumerate(pairs)]
 
 
 def sweep(records, n_gt):
