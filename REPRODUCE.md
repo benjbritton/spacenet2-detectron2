@@ -18,7 +18,7 @@ inside the pinned image. Nothing is installed on the host.
 | image | `m2/detectron2:cu124-torch251`, `sha256:d1da631a388f5856d06bf39f5a0b46d29e0219a57ed6c0da51afb92c7367068e` |
 | base | `pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel`, `sha256:14611869895df612b7b07227d5925f30ec3cd6673bad58ce3d84ed107950e014` |
 | detectron2 | commit `a2f4a8771ab77e8411c26b27f24f9489a28a2453` |
-| resolved packages | `docker/environment.lock.txt` (179 entries, `pip freeze` from the built image) |
+| resolved packages | `docker/environment.lock.txt` (188 entries, `pip list --format=freeze` from the built image) |
 
 ```bash
 docker build -t m2/detectron2:cu124-torch251 -f docker/Dockerfile.detectron2 docker/
