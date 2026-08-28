@@ -108,6 +108,11 @@ def parse_args():
     p.add_argument("--no-wandb", action="store_true")
     p.add_argument("--skip-per-aoi", action="store_true",
                    help="pooled evaluation only")
+    p.add_argument("--split", choices=["random", "blocked"], default="random",
+                   help="random is the baseline-comparable split; blocked holds "
+                        "out contiguous ~2 km blocks so val tiles mostly do not "
+                        "border training tiles, and measures how much the random "
+                        "split flatters the result")
     p.add_argument("--eval-only", default=None, metavar="WEIGHTS",
                    help="skip training; load these weights and evaluate. Used to "
                         "score a finished model on a dataset it was not "
@@ -180,16 +185,29 @@ def main():
 
     # Registration must precede cfg use: DATASETS.TRAIN names have to resolve.
     os.chdir(REPO)
-    pooled = spacenet.register_pooled(root=args.data_root)
+    # The blocked split lives in its own coco dir under its own dataset prefix,
+    # so both can be registered in one process without colliding and a run cannot
+    # silently mix them.
+    coco_dir = (os.path.join(args.data_root, "coco_blocked")
+                if args.split == "blocked" else None)
+    prefix = "spacenet2b" if args.split == "blocked" else "spacenet2"
+
+    pooled = spacenet.register_pooled(root=args.data_root, coco_dir=coco_dir,
+                                      prefix=prefix)
     # --no-eval must mean no evaluation at all. Emptying DATASETS.TEST silences
     # the pooled pass but not this one, and a memory probe that then spends five
     # minutes on per-AOI evaluation measures nothing anybody asked for.
     per_aoi = ([] if (args.skip_per_aoi or args.no_eval)
-               else spacenet.register_val_per_aoi(root=args.data_root))
+               else spacenet.register_val_per_aoi(root=args.data_root,
+                                                  coco_dir=coco_dir,
+                                                  prefix=prefix))
     print("registered pooled :", pooled)
     print("registered per-AOI:", per_aoi)
 
     cfg = build_cfg(args)
+    if args.split == "blocked" and args.eval_dataset is None:
+        cfg.DATASETS.TRAIN = ("%s_train" % prefix,)
+        cfg.DATASETS.TEST = ("%s_val" % prefix,)
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 
     # Explicit. cfg.SEED is read by default_setup() only, which is not called.
@@ -216,6 +234,7 @@ def main():
             config={
                 "base_config": BASE,
                 "dataset": "SpaceNet2 pooled (4 AOIs)",
+                "split": args.split,
                 "stretch": args.stretch,
                 "seed": cfg.SEED,
                 "split_seed": split["split_seed"],
