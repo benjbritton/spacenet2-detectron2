@@ -54,6 +54,17 @@ RUN pip install --no-cache-dir --no-build-isolation -e /opt/detectron2
 # ~15 minute recompile on every future change to this list.
 RUN pip install --no-cache-dir rasterio shapely pyproj
 
+# Hugging Face stack. huggingface_hub arrives already as a timm dependency, but
+# the hub client alone is not the environment the research plan calls for: Weeks
+# 11-14 evaluate Grounding DINO and OWL-ViT, both of which ship as transformers
+# models, and `datasets` is how their evaluation data is pulled.
+#
+# Same placement logic as the geo stack -- after the detectron2 install, so the
+# cached CUDA compile survives a change to this list. Whether transformers drags
+# numpy forward is not assumed either way; the assertion below runs last and is
+# what actually proves it.
+RUN pip install --no-cache-dir transformers datasets
+
 # Fail the BUILD, not a training run three hours in, if numpy drifted back up.
 # Runs last so it also catches the geo packages dragging numpy forward -- the
 # exact way the pin was lost the first time.
