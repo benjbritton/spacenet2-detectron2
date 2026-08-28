@@ -934,16 +934,32 @@ disagreement between runs.
 
 ### What this establishes
 
-- The Vegas-Khartoum gap is **not** composition (18%), **not** albedo (Khartoum
-  leads on it), and **not** crowding (absent everywhere).
+- The Vegas-Khartoum gap is **not** composition (18%), **not** *global luminance*
+  contrast (Khartoum leads on it), and **not** crowding (absent everywhere).
+  "Albedo" was the word used here originally; it is imprecise now that chromatic
+  contrast has been measured separately and separately refuted. See the hue entry
+  below, which splits contrast into three readings and settles each.
 - The failure mode is **missing buildings, not inventing them**: recall is below
   precision in all twelve city-bucket cells, most starkly Khartoum small,
   precision 0.535 against recall 0.350. Under half the small Khartoum buildings
   are found.
 - The two measurements that track difficulty are **boundary contrast** and
-  **shadow**, which is the relief story: flat roofs on flat ground give a soft
-  edge and no cast shadow, so the only remaining cue is a tonal difference the
-  model cannot localise precisely enough to clear IoU 0.5.
+  **shadow**. Both are flat-roof consequences: flat roofs on flat ground give a
+  soft edge and no cast shadow.
+
+  > **Corrected same day.** This bullet originally continued "...so the only
+  > remaining cue is a tonal difference the model cannot localise precisely
+  > enough to clear IoU 0.5." That mechanism is **refuted** -- see the Open list
+  > below and `scripts/iou_sweep.py`. At IoU 0.10 Khartoum still misses 32% of
+  > buildings, so they are not being found and lost on geometry; nothing is
+  > proposed on them at all. Boundary contrast and shadow remain real
+  > measurements that track difficulty. Neither has been shown to cause anything.
+  >
+  > Note what this leaves shadow as. The hue entry below ablated chroma and found
+  > a 42.7% attribution collapse to nothing. **Shadow has had no equivalent test**
+  > -- it is a correlate with an untested mechanism, exactly the position hue was
+  > in before the ablation, and it should be read that way rather than as the
+  > surviving explanation.
 - **Vegas medium is 0.980, effectively saturated.** Whatever headroom the
   pipeline has left is in small objects generally and Khartoum specifically, not
   in the bulk of the easy city. That is worth knowing before choosing what to
@@ -953,7 +969,10 @@ Honest limits: n=4 cities, so every rank correlation here is suggestive and
 nothing more. Size and relief are physically entangled -- small, single-storey,
 flat-roofed buildings are one building type, not two independent variables -- and
 four cities cannot separate them. The shadow proxy measures darkness near
-buildings, which a shadow causes but does not uniquely cause.
+buildings, which a shadow causes but does not uniquely cause. The tile-level
+attribution in the hue entry below lifts the n=4 constraint for the factors it
+covers, and its finding applies here in full: a factor can apportion a large
+share of the gap and still not be a cue.
 
 ### Artifacts
 
@@ -978,10 +997,14 @@ stops; `wsl -d Ubuntu-24.04 -- true` revives it.
 
 ### Open
 
-- **Boundary-quality decomposition.** Recall at IoU 0.5 conflates "not found" with
-  "found but outlined too loosely". Rescoring Khartoum at IoU 0.25 would split
-  those: if recall jumps, the buildings are being found and lost on geometry,
-  which points at mask head resolution rather than at detection. Cheap, no GPU.
+- ~~**Boundary-quality decomposition.**~~ Done, and it came out against the
+  expectation written here. Recall at IoU 0.5 conflates "not found" with "found
+  but outlined too loosely"; `scripts/iou_sweep.py` separates them. Khartoum
+  recovers 18.3% at IoU 0.25, *less* than Paris at 25.1%, and still misses 32% at
+  IoU 0.10. **Nothing is proposed on those buildings at all**, so the failure is
+  upstream of the mask head, not in it. This is what severs the boundary-contrast
+  measurement from the failure mode -- see the correction in "What this
+  establishes" above.
 - **Per-city score thresholds.** 0.544 was selected once, pooled, on train and
   applied to all four cities. No per-city optimum has been computed, so the
   per-city table is at a threshold suboptimal for every city individually. The
@@ -1032,6 +1055,50 @@ Three details from the paper settle things this project had to assume:
 3. **Scores are on a withheld test set**, from a 60/20/20 train/test/validation
    split. Confirms the largest outstanding caveat: our val is carved from
    training data.
+
+### Two headline numbers for one model, finally reconciled
+
+This notebook has reported **segm AP 49.44** and **SpaceNet F1 0.7930** in
+separate entries since 2026-08-27 without ever relating them. Same model, same
+weights, same 2118 val tiles. A reader arriving cold sees two numbers sixty
+points apart and draws the obvious inference -- that one metric says the model is
+mediocre and the other says it is good -- and that inference is wrong. The
+reconciling figures were in `metrics.json` the whole time and were never quoted.
+
+Seed 0, pooled val, iteration 6000:
+
+| | segm | bbox | what it requires |
+|---|---|---|---|
+| AP50 | **81.21** | 82.06 | 50% overlap |
+| AP75 | 54.35 | 59.48 | 75% overlap |
+| AP | 49.44 | 52.76 | mean of ten thresholds, 0.50 to 0.95 in steps of 0.05 |
+| SpaceNet F1 | **0.7930** | | 50% overlap, at one score threshold |
+
+Three differences, each accounting for part of the sixty points:
+
+1. **Scale.** COCO reports AP x100 by convention. 49.44 is 0.4944.
+2. **IoU strictness.** F1 is at IoU 0.5 only. AP averages ten thresholds up to
+   0.95, where scores approach zero. Put both on the same overlap requirement and
+   **AP50 0.8121 against F1 0.7930 -- about two points apart.**
+3. **Confidence handling**, which is the residual two points. F1 commits to one
+   score cutoff (0.544) and reports that operating point. AP integrates the whole
+   precision-recall curve, including the low-score tail where precision collapses.
+
+**So 49.44 is not a worse result than 0.793. It is the same result, averaged
+across nine additional and progressively brutal overlap requirements.**
+
+AP75 at 54.35 is the informative middle term: performance falls by a third when
+the bar moves from 50% to 75% overlap, and the thresholds above 0.75 contribute
+almost nothing. That is a localisation-quality statement, and it is what makes
+COCO AP worth logging here even though nothing external can be compared to it --
+it measures outline precision that F1 at IoU 0.5 is blind to by construction.
+
+Two consequences already relied on elsewhere in this notebook and not previously
+justified. The IoU sweep's premise -- that recall at IoU 0.5 conflates "not
+found" with "found but outlined loosely" -- is exactly the AP50-to-AP75 fall made
+per-city. And the reason SpaceNet F1 and COCO mAP are *not convertible*, asserted
+on 2026-08-27, is this: they differ on two axes at once, and only one of them
+(IoU) has a defined mapping.
 
 ### Lining the numbers up
 
