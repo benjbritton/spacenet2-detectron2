@@ -343,9 +343,12 @@ W&B runs `balloon-a5000-seed0/1/2` and `balloon-a5000` in project
   account holds it. Published URLs are `wandb.ai/benjbritton-geoai/...` unless
   W&B support provisions one on request.
 - Repo published (private) at `github.com/benjbritton/benjbritton_FA26`. All
-  commits were rewritten from `brittobj@mail.uc.edu` to
-  `benjaminbritton@yahoo.com` before the first push, so they attribute to the
-  GitHub account; git identity is now set globally to match.
+  commits were rewritten from the university address to the permanent personal
+  one before the first push, so they attribute to the GitHub account; git
+  identity is now set globally to match. One contact address is correct for this
+  work and every other address is not, so the superseded one is not spelled out
+  here -- what matters to the record is that the identity was unified, not what
+  it was unified away from.
 
 
 ## 2026-08-27 - SpaceNet 2 baseline (Milestone B)
