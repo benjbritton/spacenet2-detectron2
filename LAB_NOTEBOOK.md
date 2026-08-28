@@ -1107,8 +1107,27 @@ just far smaller than the sentence implies.
 - The blog post now has a spine: a reproduction that lands near published
   numbers, and a measured correction to the published explanation of why one
   city is hard.
-- Whether the boundary-contrast finding survives at IoU 0.25 (`scripts/iou_sweep.py`,
-  in progress in the process window). If Khartoum recall jumps sharply at the
-  looser threshold, buildings are being found and lost on geometry, which would
-  tie the soft-edge measurement directly to the failure mode rather than leaving
-  the link inferred.
+- ~~Whether the boundary-contrast finding survives at IoU 0.25~~ -- run, and the
+  prediction made here was **wrong**. This entry predicted that if Khartoum
+  recall jumped sharply at a looser IoU, the soft-edge measurement would be tied
+  to the failure mode. `scripts/iou_sweep.py` says the opposite: Khartoum
+  recovers 18.3% at IoU 0.25, *less* than Paris at 25.1%, and at IoU 0.10 it
+  still misses 32% of buildings.
+
+  Loosening the geometric bar almost to nothing does not find them, so they were
+  never proposed. **The soft-edge finding survives as a measurement and loses its
+  causal link to the misses.** Boundary contrast is genuinely low in Khartoum
+  (0.315 against Vegas's 0.435) and that is genuinely not what is producing the
+  failure. The failure is upstream of localisation entirely -- backbone or RPN,
+  not the mask head -- and the entry above should be read with that correction:
+  it establishes what Khartoum's imagery lacks, not yet why the detector misses.
+
+  Worth keeping as a method note. The boundary measurement and the recall
+  failure were both real and both about Khartoum, which made the causal story
+  between them feel settled without being tested. It took a threshold sweep
+  costing no GPU to break the link. Three separate claims in this notebook have
+  now died the same way, and the pattern is always a plausible mechanism
+  connecting two true measurements.
+
+  A fuller synthesis with the hue and grayscale results belongs in the
+  process window's write-up rather than being pre-empted here.
