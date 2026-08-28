@@ -400,6 +400,15 @@ against our 3.11), `pyyaml==5.2` (will not build against modern Cython), and a
 published code.** Worth raising with the advisor rather than explaining in
 December.
 
+> **Amended 2026-08-28.** The conclusion is right, the framing was wrong.
+> Solaris has no published SN2 results to reproduce in the first place -- it
+> postdates the challenge by about two years, and its CosmiQ baselines are SN4,
+> SN6 and SN7. The installability problem was never what stood between this
+> project and a comparison. The reference is the SpaceNet dataset paper
+> (arXiv 1807.01232), which publishes per-city F1 for the top three competitors
+> *and* two baselines (YOLT 0.60, modified MNC 0.57). See the last
+> 2026-08-28 entry.
+
 ### Converter, audited against real data
 
 `geojson_to_coco.py` was written in August against a format description. Running
@@ -979,3 +988,127 @@ stops; `wsl -d Ubuntu-24.04 -- true` revives it.
   saved per-AOI predictions make this a sweep, not a run.
 - Whether any of this is actionable. A finding that Khartoum lacks a cue is not
   yet a change to the model.
+
+
+## 2026-08-28 - The published reference, located: it was never Solaris
+
+### Solaris has no SN2 numbers, and could not have
+
+The 2026-08-27 entry recorded that Solaris cannot be installed and concluded that
+Milestone B is "reproducing the published method and numbers, not the published
+code". That conclusion holds, but the reasoning was incomplete in a way worth
+correcting: **Solaris has no published SpaceNet 2 results to reproduce.** It
+postdates the challenge by roughly two years -- SN2 ran in 2017, Solaris appears
+from 2019 -- and the CosmiQ baselines built on it are SN4, SN6 and SN7. Searching
+turns up no SN2 F1 from Solaris at all.
+
+So the installation failure was never the thing standing between this project and
+a comparison. The comparison target is, and always was, **the SpaceNet dataset
+paper itself** (arXiv 1807.01232).
+
+### The published table
+
+| method | Vegas | Paris | Shanghai | Khartoum | total |
+|---|---|---|---|---|---|
+| XD_XD (1st) | 0.885 | 0.745 | 0.597 | 0.544 | **0.69** |
+| wleite (2nd) | 0.829 | 0.679 | 0.581 | 0.483 | 0.64 |
+| nofto (3rd) | 0.787 | 0.584 | 0.520 | 0.424 | 0.58 |
+| YOLT (baseline) | | | | | **0.60** |
+| modified MNC (baseline) | | | | | **0.57** |
+
+The two baseline rows are new to this notebook and matter more than the winners
+for Milestone B: a *baseline* is what a baseline should be measured against.
+
+Three details from the paper settle things this project had to assume:
+
+1. **"Total Score" is the arithmetic mean of the per-city F1** -- an explicit
+   macro average. The 2026-08-27 entry argued from first principles that macro
+   (0.7462) rather than pooled micro (0.7935) is the comparable figure, because
+   Vegas is 51% of val instances. That argument is now citable rather than merely
+   defensible: micro was never what the competition reported.
+2. **The metric is F1 at IoU >= 0.5 on polygons.** Confirms both the operating
+   point `src/detlab/spacenet_f1.py` implements and the raster-vs-polygon caveat
+   already recorded.
+3. **Scores are on a withheld test set**, from a 60/20/20 train/test/validation
+   split. Confirms the largest outstanding caveat: our val is carved from
+   training data.
+
+### Lining the numbers up
+
+No published mAP for SN2 exists, so COCO AP has nothing to compare against and
+never will. F1 is the metric the reference reports, and it is already computed
+alongside COCO at every evaluation point -- `SpaceNetF1Evaluator` has run in the
+training loop since 2026-08-27, which is why the three-seed runs took 1:52
+against 1:45. **No new work was needed to make the numbers line up; the right
+metric was already being logged.** COCO AP stays in the notebook as the internal
+diagnostic it is, useful for the size buckets and for comparing our own runs, and
+carries no external claim.
+
+| | ours (random split, 3 seeds) | XD_XD | YOLT | MNC |
+|---|---|---|---|---|
+| Vegas | 0.8952 | 0.885 | | |
+| Paris | 0.7791 | 0.745 | | |
+| Shanghai | 0.6877 | 0.597 | | |
+| Khartoum | 0.6272 | 0.544 | | |
+| **macro** | **0.7462** | **0.693** | 0.60 | 0.57 |
+
+Blocked split gives macro 0.7583, pooled F1 0.7911.
+
+**Still not a claim of beating the 2017 winner**, and the reasons are unchanged
+and now individually documented: their scores are on the withheld test set while
+ours are on a val split of the training data; our random tile split is spatially
+autocorrelated, worth about 0.4% on the pooled metric (2026-08-28, first entry);
+and our IoU is on rasterised masks rather than georeferenced polygons. The
+defensible statement is that the pipeline lands in the neighbourhood of the
+published results and reproduces their per-city difficulty ordering exactly,
+under evaluation conditions that favour it by an amount partly quantified and
+partly not.
+
+Milestone B's stated target -- F1 >= 0.554, within 20% of the reference -- is met
+against 0.7462, and is also clear of both published baselines.
+
+### The paper states a cause for Khartoum. Half of it is wrong.
+
+The paper explains the city ordering in one sentence each, with no measurement
+behind either:
+
+> Khartoum, hardest, "partly due to the high variance in building size and low
+> contrast between building and background".
+>
+> Vegas, easiest, "partly due to the many well separated residential buildings
+> with low variance in size".
+
+All three claims are now measured (second 2026-08-28 entry above):
+
+| claim | verdict |
+|---|---|
+| Khartoum: building size | **supported, and small.** Khartoum is 47.7% small against Vegas's 29.0%, but the city ordering survives inside every size bucket and standardising to Vegas's mix closes only 18% of the 0.277 gap. |
+| Khartoum: low contrast | **contradicted.** Khartoum has the *highest* roof-vs-ground brightness separation of the four, Cohen d 1.575 against Vegas's 1.136. |
+| Vegas: well separated | **does not distinguish.** Abutment is ~0 in all four cities, so separation cannot be what sets Vegas apart. |
+
+The contrast claim fails on the obvious reading and survives on a narrower one.
+What is low in Khartoum is **boundary** contrast -- 0.315 against Vegas's 0.435 --
+not global contrast. Its roofs differ from the ground on average while the edge
+between them is soft, and detection lives on edges rather than on means. A single
+global statistic would have agreed with the paper if it had been the only one
+computed; the two statistics disagreeing is the finding.
+
+Worth stating plainly, because it is the most defensible original result this
+project has produced so far: **the dataset paper's stated explanation for its own
+difficulty ordering is, on the natural reading, not supported by the data.** It
+was an aside rather than a claim under test, and this is not a criticism of the
+paper -- but it is measurable, it was not measured, and it is now.
+
+The size half of their explanation also deserves credit where due: it is real,
+just far smaller than the sentence implies.
+
+### Open
+
+- The blog post now has a spine: a reproduction that lands near published
+  numbers, and a measured correction to the published explanation of why one
+  city is hard.
+- Whether the boundary-contrast finding survives at IoU 0.25 (`scripts/iou_sweep.py`,
+  in progress in the process window). If Khartoum recall jumps sharply at the
+  looser threshold, buildings are being found and lost on geometry, which would
+  tie the soft-edge measurement directly to the failure mode rather than leaving
+  the link inferred.
