@@ -108,6 +108,11 @@ def parse_args():
     p.add_argument("--no-wandb", action="store_true")
     p.add_argument("--skip-per-aoi", action="store_true",
                    help="pooled evaluation only")
+    p.add_argument("--grayscale", action="store_true",
+                   help="ablation: collapse chroma after the stretch and "
+                        "replicate across 3 channels. Tests whether hue is "
+                        "causal for the per-city gap rather than merely "
+                        "correlated with it")
     p.add_argument("--split", choices=["random", "blocked"], default="random",
                    help="random is the baseline-comparable split; blocked holds "
                         "out contiguous ~2 km blocks so val tiles mostly do not "
@@ -219,7 +224,9 @@ def main():
     print("filter empty  :", cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS,
           "(False keeps the 2069 no-building tiles)")
 
-    SpaceNetTrainer.stretch = spacenet.Stretch.from_json(STRETCH_JSON, args.stretch)
+    SpaceNetTrainer.stretch = spacenet.Stretch.from_json(
+        STRETCH_JSON, args.stretch, grayscale=args.grayscale)
+    print("grayscale     :", args.grayscale)
 
     run = None
     if not args.no_wandb:
@@ -236,6 +243,7 @@ def main():
                 "dataset": "SpaceNet2 pooled (4 AOIs)",
                 "split": args.split,
                 "stretch": args.stretch,
+                "grayscale": args.grayscale,
                 "seed": cfg.SEED,
                 "split_seed": split["split_seed"],
                 "val_frac": split["val_frac"],

@@ -71,7 +71,8 @@ def city_of(path):
 class Stretch:
     """UInt16 -> uint8, either per-image or from per-city constants."""
 
-    def __init__(self, mode="per_image", low=2.0, high=98.0, constants=None):
+    def __init__(self, mode="per_image", low=2.0, high=98.0, constants=None,
+                 grayscale=False):
         if mode not in ("per_image", "per_city"):
             raise ValueError("mode must be per_image or per_city, got %r" % mode)
         if mode == "per_city" and not constants:
@@ -80,9 +81,16 @@ class Stretch:
         self.low = low
         self.high = high
         self.constants = constants or {}
+        # Ablation: collapse chroma AFTER the stretch and replicate the result
+        # across three channels. Replicating rather than feeding one channel
+        # keeps the architecture, the input shape and the COCO-pretrained stem
+        # byte-identical, so the presence of colour is the only variable between
+        # a grayscale run and its colour twin. A single-channel input would
+        # change the first convolution too and confound the two.
+        self.grayscale = grayscale
 
     @classmethod
-    def from_json(cls, path, mode):
+    def from_json(cls, path, mode, grayscale=False):
         with open(path) as f:
             d = json.load(f)
         lo = d["percentiles"]["low"]
@@ -92,7 +100,8 @@ class Stretch:
         for city, s in d["cities"].items():
             consts[city] = [(float(s[b][lo_key]), float(s[b][hi_key]))
                             for b in ("R", "G", "B")]
-        return cls(mode=mode, low=lo, high=hi, constants=consts)
+        return cls(mode=mode, low=lo, high=hi, constants=consts,
+                   grayscale=grayscale)
 
     def bounds(self, arr, path):
         """Per-channel (lo, hi) in raw UInt16 units."""
@@ -120,6 +129,12 @@ class Stretch:
             span = max(hi - lo, 1.0)
             scaled = (arr[c].astype(np.float32) - lo) * (255.0 / span)
             out[c] = np.clip(scaled, 0, 255).astype(np.uint8)
+        if self.grayscale:
+            # Unweighted mean of the three stretched channels, matching how
+            # brightness was measured in scripts/city_separability.py, so the
+            # ablated input is the same quantity that analysis reported on.
+            g = out.mean(axis=0).round().astype(np.uint8)
+            out = np.stack([g, g, g], axis=0)
         return np.ascontiguousarray(out.transpose(1, 2, 0))
 
     def load(self, path):
