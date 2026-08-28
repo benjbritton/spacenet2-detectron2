@@ -509,19 +509,37 @@ score-ordered matching, each ground truth claimable once, micro-averaged.
 
 The operating point is the real difference from AP. Competitors submitted fixed
 polygon sets with no confidence scores, so each published F1 is one point a team
-tuned for itself. Reporting at an arbitrary threshold understates the model;
-reporting only the best over all thresholds overstates it, because that threshold
-was chosen on the set being scored. Here the distinction barely matters -- best
-F1 0.7935 at threshold 0.532 against 0.7923 at a fixed 0.5 -- but that is a
-finding, not a licence to stop reporting both.
+tuned for itself. Reporting the best F1 over all thresholds would mean reporting a
+value at a threshold chosen using the set being scored -- a tuned hyperparameter
+presented as a result -- so **the threshold is selected on other data.**
 
-| AOI | ours | XD_XD (2017 winner) |
-|---|---|---|
-| Vegas | 0.8947 | 0.885 |
-| Paris | 0.7773 | 0.745 |
-| Shanghai | 0.6862 | 0.597 |
-| Khartoum | 0.6267 | 0.544 |
-| **macro** | **0.7462** | **0.693** |
+Two sources were computed, because each has a different flaw:
+
+- **train** -- unbiased with respect to val, but the model has memorised those
+  tiles. Train F1 is 0.8154 against 0.7930 on val, so its predictions there
+  really are more confident, and the optimal threshold is offset from what suits
+  unseen ground. Selected 0.544.
+- **val half** -- split val by image id, select on half A, report on half B.
+  Unbiased AND distribution-matched, at the cost of halving the reporting set.
+  Needs no extra inference. Selected 0.539.
+
+**They agree.** On held-out val half B those thresholds give F1 0.7939 and 0.7941,
+two ten-thousandths apart. The memorisation bias is real in the threshold and does
+not propagate to the score. Worth checking; it changed nothing, and that is now a
+measured statement rather than an assumption.
+
+Reported at the train-selected threshold of 0.544:
+
+| AOI | F1 | precision | recall | XD_XD (2017 winner) |
+|---|---|---|---|---|
+| Vegas | 0.8941 | 0.9264 | 0.8640 | 0.885 |
+| Paris | 0.7762 | 0.8223 | 0.7349 | 0.745 |
+| Shanghai | 0.6828 | 0.7360 | 0.6368 | 0.597 |
+| Khartoum | 0.6257 | 0.6757 | 0.5827 | 0.544 |
+| **macro** | **0.7447** | | | **0.693** |
+
+Pooled val F1 0.7930, against 0.7935 for the best-over-sweep that is not
+reportable. Full rigour cost 0.0015 of F1.
 
 **This is not a claim of beating the 2017 winner.** Three differences all favour
 us: XD_XD was scored on the withheld competition test set while this is a val
@@ -550,20 +568,86 @@ The 2026-08-22 entry claimed the back half of the LR schedule does most of the
 small-object work, and generalized it in as many words to "SpaceNet buildings and
 any small-target detection". Tested here, it fails.
 
-LR decays at iteration 4000. `segm/APs` went 25.82 -> 26.44: **0.62 points, 2.4%
-relative**, against 8.5x on balloon. Most of the small-object gain happened early,
-21.23 -> 25.47 across the first 3000 iterations.
+LR decays at iteration 4000. Nothing here resembles the 8.5x jump balloon showed;
+most of the small-object gain happens early, before the decay.
 
-The effect was an artefact of 61 training images and a 13-image val set where
-`APs` rested on three instances. Two rounds of scrutiny have now cost that
-finding first its magnitude and then its generality. The honest residue: **do not
-extrapolate from a toy dataset**, and check the per-bucket instance count before
-reading a per-bucket metric.
+> **Corrected 2026-08-28 -- the first version of this paragraph quoted "0.62
+> points, 2.4% relative" for the gain across the decay. That was a single run.**
+> Across three seeds the gain is **1.87 +/- 1.20** points, because seed 0 simply
+> happened to be further along at iteration 4000 than the other two. Quoting an
+> n=1 delta as a result, in the very entry arguing against doing so, is the same
+> mistake one level up. See "Three seeds" below.
+
+The balloon effect was an artefact of 61 training images and a 13-image val set
+where `APs` rested on three instances. Three rounds of scrutiny have now cost that
+finding its magnitude, then its generality, and finally forced a correction to its
+own refutation. The residue worth keeping: **do not extrapolate from a toy
+dataset**, check the per-bucket instance count before reading a per-bucket metric,
+and **do not quote a delta from one run**, including a delta that refutes
+something.
+
+### Three seeds
+
+Seeds 0, 1 and 2. Everything else held fixed, including the split, which is read
+from `configs/spacenet2_split.json` rather than regenerated -- otherwise seed
+variance and split variance are summed with no way to separate them. Sequential,
+one GPU. About 1:52 each, up from 1:45 now that the F1 evaluator runs alongside
+COCO at every eval point.
+
+**Final values are highly reproducible.**
+
+| metric | seed 0 | seed 1 | seed 2 | mean | sd | CV |
+|---|---|---|---|---|---|---|
+| segm AP | 49.44 | 49.60 | 49.47 | 49.504 | 0.088 | 0.18% |
+| segm APs | 26.44 | 26.63 | 26.69 | 26.587 | 0.135 | 0.51% |
+| pooled F1 | 0.7935 | 0.7951 | 0.7950 | 0.7945 | 0.0009 | 0.11% |
+
+`APs` had **CV 59.8% on balloon against 0.51% here** -- a hundredfold reduction,
+which is what the three-instances-versus-81862-instances diagnosis predicted. The
+instability was sample size. That is now measured rather than argued.
+
+**The per-city differences are structural, not noise.**
+
+| AOI | seed 0 | seed 1 | seed 2 | mean | sd |
+|---|---|---|---|---|---|
+| Vegas | 0.8947 | 0.895 | 0.896 | 0.8952 | 0.0007 |
+| Paris | 0.7773 | 0.782 | 0.778 | 0.7791 | 0.0025 |
+| Shanghai | 0.6862 | 0.689 | 0.688 | 0.6877 | 0.0014 |
+| Khartoum | 0.6267 | 0.628 | 0.627 | 0.6272 | 0.0007 |
+
+The Vegas-Khartoum gap is 0.268 against a seed sd near 0.001, roughly 200 sigma.
+This also fixes the resolution of the `per_image` vs `per_city` stretch
+comparison still to come: anything above about 0.003 in F1 will be real.
+
+**But mid-training trajectories are NOT reproducible**, and this is the finding
+that matters most:
+
+```
+segm/APs   iter1000  iter2000  iter3000  iter4000  iter5000  iter6000
+seed 0        21.23     22.80     25.47     25.82     26.38     26.44
+seed 1        20.95     21.65     24.19     23.63     26.44     26.63
+seed 2        20.95     24.09     24.15     24.69     26.61     26.69
+
+gain across the LR decay at 4000:   +0.62     +3.00     +2.00
+```
+
+At iteration 4000 the three runs span 1.5 AP, and the gain attributable to the
+decay ranges from +0.62 to +3.00 -- a factor of five. The endpoints agree to
+0.26.
+
+Generalisable, and it is the sharper version of everything above: **final
+performance can be highly reproducible while mid-training trajectories are not.**
+Any claim about *when* something happens during training needs multiple seeds even
+when the endpoint clearly does not. Every trajectory-shaped claim in this notebook
+before today was made from a single run.
 
 ### Artifacts
 
 ```
-outputs/spacenet2_r50fpn/
+outputs/spacenet2_r50fpn/          seed 0
+outputs/spacenet2_r50fpn_seed1/    seed 1
+outputs/spacenet2_r50fpn_seed2/    seed 2
+outputs/thresh_select/             train-split predictions, threshold selection
   model_best.pth, model_final.pth
   metrics.json
   inference/instances_predictions.pth          pooled val predictions
@@ -577,12 +661,14 @@ re-scored without another inference pass.
 
 ### Open
 
-- **Threshold selection.** F1 is currently reported at a threshold chosen on the
-  scored set. For the write-up, pick it on train and report at that fixed value.
-- **Spatially blocked split**, to quantify the autocorrelation inflation.
-- **`per_city` stretch comparison**, paired by seed against `per_image`.
-- **Seed variance.** One run at 1:45 each; three would establish whether the
-  per-city gaps are larger than run-to-run noise. Needed before the `per_city`
-  comparison can be interpreted at all.
-- **Khartoum at 0.627 against Vegas 0.895.** Worth understanding rather than
-  reporting.
+- ~~Threshold selection~~ -- done, selected on train at 0.544, cross-checked
+  against a val-half selection that agreed to 0.005.
+- ~~Seed variance~~ -- done, three seeds. segm AP 49.504 +/- 0.088.
+- **`per_city` stretch comparison**, paired by seed against `per_image`. Now
+  interpretable: the resolution is about 0.003 F1.
+- **Spatially blocked split**, to quantify the autocorrelation inflation. This is
+  the first question a peer reviewer asks about the XD_XD comparison.
+- **Khartoum at 0.627 against Vegas 0.895**, now known to be structural at
+  ~200 sigma. Worth understanding rather than reporting.
+- **Milestone B remainder:** public repo and first blog post. The modelling is
+  done.
