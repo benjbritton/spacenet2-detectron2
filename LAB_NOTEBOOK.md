@@ -1131,3 +1131,211 @@ just far smaller than the sentence implies.
 
   A fuller synthesis with the hue and grayscale results belongs in the
   process window's write-up rather than being pre-empted here.
+
+
+## 2026-08-28 - Hue: measured, apportioned 42.7% of the gap, and then ablated to nothing
+
+Ben's hypothesis, from looking at the overlays: Khartoum roofs and terrain share a
+hue even where their brightness differs, so the chromatic channel carries no
+signal marking a building. Everything measured so far had been luminance, so the
+question was open and separate.
+
+It ran to a clean negative, by way of a large positive that did not survive being
+tested. The sequence is the point of this entry.
+
+### Step 1 -- hue separation is real, large, and orders with difficulty
+
+`scripts/city_hue.py`. Hue is circular, so every mean is `atan2(mean sin, mean
+cos)` and every distance wraps; a linear mean over hue angles puts the mean of red
+pixels in the cyans. Hue is also undefined at low saturation -- exactly the regime
+bare desert and concrete roofs occupy -- so saturation is reported beside every
+number and pixels below 0.05 do not vote. All float32: **8-bit OpenCV HSV
+quantises hue to 2 degrees per step, and Khartoum's entire roof-to-ground
+separation is 2.3 degrees.** Measured in 8-bit this finding does not exist.
+
+Raw sensor hue, roof against ground:
+
+| city | F1 | roof | ground | separation | d_circ | saturation (roof) |
+|---|---|---|---|---|---|---|
+| Vegas | 0.895 | 109.7 | 139.1 | **29.4** | 1.91 | 0.316 |
+| Paris | 0.779 | 132.6 | 156.3 | **23.8** | 2.11 | 0.257 |
+| Shanghai | 0.688 | 136.9 | 141.9 | 5.0 | 0.48 | 0.316 |
+| Khartoum | 0.627 | 81.6 | 83.9 | **2.3** | 0.35 | 0.326 |
+
+Khartoum roof and ground are 2.3 degrees apart against Vegas at 29.4, a factor of
+thirteen, and raw hue splits the cities exactly along the F1 split as a binary
+separation rather than a gradient. It is **not** a low-saturation artefact, which
+was the obvious way this measurement could have lied: Khartoum has the *highest*
+roof saturation of the four, well clear of the noise floor. There is real colour
+there. It is the same colour on both sides of the wall.
+
+Note the dissociation with the previous entry: Khartoum leads on *brightness*
+separation (d 1.575) and comes last on *hue* separation. Those two come apart,
+and the one that ordered with F1 was hue.
+
+**A prediction of mine that failed, recorded because it was wrong.** The
+per-channel percentile stretch was expected to destroy chromatic signal before the
+network sees it. It does the opposite -- being an independent per-channel
+normalisation it acts as a per-tile white balance and **amplifies** hue
+separation, lifting Shanghai from 5.0 to 63.7 degrees. Khartoum is the only city
+it cannot rescue, reaching 19.7 against roughly 65 for the other three.
+
+### Step 2 -- apportioning it, which city-level analysis cannot do
+
+`scripts/factor_attribution.py`. Correlating factors against per-city F1 is
+impossible on its face: four cities, four correlated predictors, zero residual
+degrees of freedom. Any coefficients fit perfectly and none mean anything.
+
+The constraint is an artefact of aggregating. Those four cities are 1696 usable
+validation tiles carrying 43478 instances, each with its own hue separation,
+boundary contrast, shadow signature, size and measured recall. Weighted least
+squares at tile level, weighted by ground-truth count so the fit is an
+instance-level statement.
+
+Of the Vegas-Khartoum recall gap of 0.2813, each factor alone:
+
+| factor | explains alone | partial R2 (tile-to-tile) |
+|---|---|---|
+| **hue separation** | **42.7%** | 0.025 |
+| shadow | 35.6% | 0.036 |
+| size | 26.1% | **0.118** |
+| boundary contrast | 12.7% | 0.017 |
+| density | none | 0.000 |
+
+Those sum past 100 because the factors overlap. Fitted jointly they explain 55.7%
+and **44.3% of the gap survives unexplained.** Collinearity was low, all VIF under
+1.5, so the individual coefficients were not mush. Full model R2 0.487.
+
+Hue came out the largest single contributor to the city gap.
+
+### Step 3 -- the ablation, and it kills the finding
+
+Correlation on observational data cannot establish mechanism, and Vegas has more
+of every favourable property at once, so association is what this analysis would
+show whether hue mattered or not. The test is to remove hue and retrain.
+
+Grayscale mode collapses chroma **after** the stretch and replicates the single
+channel three times, so architecture, input shape and the COCO-pretrained stem
+stay byte-identical and colour is the only variable. A single-channel input would
+change the first convolution too and confound the two. Verified before launch: the
+three output channels are byte-identical and equal the mean of the colour
+channels.
+
+**The interpretation of each outcome was written into commit `cf36ccc` before the
+run finished**, so it could not be reasoned backwards afterwards. It predicted
+that if hue were causal, Vegas (29.4 deg) and Paris (23.8) would lose most while
+Khartoum (2.3) had almost nothing to lose, and the gap would close by something
+like 42.7%.
+
+Seed 0, everything else identical:
+
+| AOI | colour | grayscale | delta |
+|---|---|---|---|
+| Vegas | 0.8947 | 0.893 | -0.002 |
+| Paris | 0.7773 | 0.777 | -0.000 |
+| Shanghai | 0.6862 | 0.678 | -0.008 |
+| Khartoum | 0.6267 | 0.626 | -0.001 |
+| pooled F1 | 0.7935 | 0.7895 | -0.004 |
+| segm AP | 49.44 | 49.11 | -0.33 |
+| **Vegas-Khartoum gap** | **0.2680** | **0.2670** | **-0.001** |
+
+**The gap did not move.** Predicted to close by 42.7% if hue were causal; it
+closed by 0.4%, which is nothing. Seed noise is ~0.001 to 0.0025 per city, so
+only the pooled drop (-0.004, about 4 sigma) and Shanghai (-0.008) are real at
+all, and both are tiny.
+
+**Colour contributes almost nothing to this task. The model retains 99.5% of its
+performance on grayscale.**
+
+One coherent micro-result inside the negative: Shanghai lost the most, and
+Shanghai is the city whose chroma the stretch amplified most (5.0 -> 63.7
+degrees). Small, but it points the right way.
+
+### What actually happened, and why the 42.7% was not a lie
+
+Hue separation genuinely predicts difficulty. The detector genuinely does not use
+it. Both are true because hue separation is a **proxy for scene complexity**
+rather than a cue: Vegas has vegetation, pools, pitched roofs and cast shadows,
+which produce chromatic variety *and* the structural cues the model actually keys
+on. The correlation runs entirely through the confound.
+
+This is the fourth claim in this notebook to die the same way, and the pattern the
+previous entry named holds exactly: a plausible mechanism connecting two true
+measurements. What is new here is that an R-squared apportionment -- a more
+formal-looking instrument than the earlier eyeball inferences -- produced a
+confident 42.7% that an ablation reduced to zero. **Attribution analysis on
+observational data cannot distinguish a cue from a correlate, however good the
+diagnostics look.** VIF under 1.5 said the coefficients were stable; stability is
+not causality.
+
+### Adjudicating the dataset paper's own claim
+
+arXiv 1807.01232 explains Khartoum in one unmeasured sentence: *"low contrast
+between building and background."* That sentence has three readings, and this
+project can now settle all three:
+
+| reading | verdict |
+|---|---|
+| global luminance contrast | **contradicted** -- Khartoum is highest, d 1.575 vs Vegas 1.136 |
+| boundary luminance contrast | **supported** as a measurement -- 0.315 vs 0.435 -- but the IoU sweep severed it from the failure mode |
+| chromatic contrast | **supported as a correlate, refuted as a cause** -- 2.3 vs 29.4 degrees, and grayscale changes nothing |
+
+So the published explanation fails on its natural reading, and the two readings
+that survive as measurements do not survive as mechanisms. What is established
+is negative and worth stating plainly: **Khartoum's buildings are not being missed
+for want of contrast, luminance or chromatic.** At IoU 0.10 a third of them are
+still missed, so nothing is proposed on them at all, and the cause remains
+unidentified.
+
+### Consequences worth acting on
+
+- **A hue-weighted objective on SpaceNet 2 would be building on sand.** If the
+  network extracts nothing from chroma here, a loss that weights chromatic
+  agreement has nothing to weight. This dataset is the wrong testbed for that
+  method, and one 2-hour run establishing it beats a semester discovering it.
+- **The asymmetry that makes chromatic detection work elsewhere is now explicit.**
+  A method gating on hue needs the target class to be *chromatically defined* -- a
+  known centroid to gate against. Buildings have none: Khartoum roofs sit at 81.6
+  degrees, Vegas at 109.7, Paris at 132.6. There is no building hue. Hue
+  separation from background is not the same property as chromatic definition, and
+  this run is the empirical demonstration that the first without the second buys
+  nothing.
+- **For the community, the useful finding is the negative one.** Colour is worth
+  0.4% on SN2 building detection. Anyone reaching for chromatic preprocessing,
+  false-colour composites or multispectral bands on this benchmark should know
+  the RGB chroma is already almost inert.
+
+### Limits
+
+- One seed for the grayscale run. The colour baseline has three (sd 0.088 AP), and
+  the observed differences sit at or under that scale, so the *direction* of small
+  per-city deltas is not established -- only that nothing large happened.
+- Grayscale removes chroma; it does not test whether a *different* colour
+  representation would help. HSV as network input, rather than RGB, remains
+  untested and is a different question.
+- The stretch amplifies hue before the network sees it, so the ablation removes
+  amplified chroma, which is the correct thing to remove but worth stating.
+
+### Artifacts
+
+```
+scripts/city_hue.py                 per-city circular hue statistics
+scripts/factor_attribution.py       tile-level weighted least squares
+scripts/iou_sweep.py                IoU rescore, detection vs geometry
+outputs/city_analysis/hue.json
+outputs/city_analysis/attribution.json
+outputs/spacenet2_r50fpn_gray/      grayscale ablation run
+```
+
+W&B run `spacenet2-r50fpn-seed0-GRAYSCALE`.
+
+### Open
+
+- **What is actually causing the 32% of Khartoum buildings nothing is proposed
+  on.** Contrast is ruled out on both axes, composition is 18%, crowding is
+  absent. The remaining candidates are texture, scale relative to the anchor set,
+  and annotation quality -- none measured.
+- **Anchor sizes.** Never examined. Khartoum median footprint is 1182 px against
+  Vegas 2327, and the FPN anchor set is the COCO default. A proposal stage that
+  cannot generate boxes at the right scale would produce exactly this failure.
+- **HSV as network input** rather than RGB, which grayscale does not address.
