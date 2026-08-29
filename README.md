@@ -22,7 +22,7 @@ because that is how the competition defines Total Score.
 **This is not a claim of beating the 2017 winner.** Those scores are on the
 competition's withheld test set; these are on a validation split carved from the
 training data, with a random tile split that is spatially autocorrelated (worth
-about 0.4% on the pooled metric, measured) and IoU computed on rasterised masks
+about 0.5% on the pooled metric, measured) and IoU computed on rasterised masks
 rather than georeferenced polygons. What the comparison does establish is that
 the pipeline lands in the neighbourhood of published results and reproduces the
 per-city difficulty ordering exactly.
@@ -138,8 +138,15 @@ ignored), so the repository as published contains no SpaceNet-derived content.
 released set of predicted footprints -- carries the attribution above and the
 ShareAlike term with it.**
 
-Whether trained model weights are a derivative work of the training data is
-unsettled and not asserted either way here.
+**Trained model weights** are treated here as a derivative of the CC BY-SA
+imagery, and would carry the ShareAlike obligation if released. See `NOTICE`.
+
+Whether that is *legally* required is genuinely unsettled — there is no
+settled answer on whether model weights are a derivative work of training data.
+This is a deliberately conservative posture rather than a claim about the law:
+the cost of assuming ShareAlike applies is releasing under ShareAlike, and the
+cost of assuming it does not is a licence violation. No weights are tracked in
+this repository.
 
 ## Third-party components
 

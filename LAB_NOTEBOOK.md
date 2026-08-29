@@ -632,7 +632,26 @@ COCO at every eval point.
 |---|---|---|---|---|---|---|
 | segm AP | 49.44 | 49.60 | 49.47 | 49.504 | 0.088 | 0.18% |
 | segm APs | 26.44 | 26.63 | 26.69 | 26.587 | 0.135 | 0.51% |
-| pooled F1 | 0.7935 | 0.7951 | 0.7950 | 0.7945 | 0.0009 | 0.11% |
+| pooled F1 | 0.7930 | 0.7948 | 0.7948 | 0.7942 | 0.0010 | 0.13% |
+
+> **Corrected 2026-08-29, and this one names the cause of the whole drift.**
+> The pooled F1 row previously read 0.7935 / 0.7951 / 0.7950, mean 0.7945. Those
+> are **best-over-sweep** values, not the fixed-threshold ones. At the reported
+> 0.544 the run gives 0.7930 / 0.7948 / 0.7948, mean 0.7942 +/- 0.0010.
+>
+> **Why every F1 table in this notebook had the same problem at once.**
+> `SpaceNetF1Evaluator.evaluate()` returns `sweep(...)` directly
+> (`spacenet_f1.py:220`), and `sweep`'s headline key is `f1_at_best`. So every F1
+> logged during training -- into `metrics.json`, into W&B, and from there into
+> every table built from a training log -- is the tuned-threshold number. The
+> reportable figure only ever appears when `score_f1.py` or `f1_report.py` is run
+> afterwards with an explicit `--threshold`.
+>
+> That is a design observation, not just a transcription fix: **the evaluator's
+> most prominent output is the one number the project has decided is not
+> reportable.** It was documented as a diagnostic in the module docstring and
+> then, predictably, quoted as a result. Worth changing the key name or logging
+> F1 at a fixed threshold alongside it.
 
 `APs` had **CV 59.8% on balloon against 0.51% here** -- a hundredfold reduction,
 which is what the three-instances-versus-81862-instances diagnosis predicted. The
@@ -699,7 +718,7 @@ re-scored without another inference pass.
 - **`per_city` stretch comparison**, paired by seed against `per_image`. Now
   interpretable: the resolution is about 0.003 F1.
 - ~~Spatially blocked split~~ -- done, see the 2026-08-28 entry. Pooled
-  inflation is about 0.4%. Per-city is unresolved and needs replicates.
+  inflation is about 0.5%. Per-city is unresolved and needs replicates.
 - ~~**Khartoum at 0.627 against Vegas 0.895**~~ -- partly answered, see the
   second 2026-08-28 entry. Not composition (size explains 18%), not albedo
   (Khartoum leads on it), not crowding. Tracks boundary contrast and absence of
@@ -751,28 +770,37 @@ Split: 8427 train / 2165 val, against 8474 / 2118 for the random split.
 | | random (3-seed mean) | blocked | delta | in sigma |
 |---|---|---|---|---|
 | segm AP | 49.504 +/- 0.088 | 49.179 | -0.325 | 3.7 |
-| pooled F1 | 0.7945 +/- 0.0009 | 0.7911 | -0.0034 | 3.8 |
+| pooled F1 | 0.7942 +/- 0.0010 | 0.7904 | -0.0038 | 3.8 |
+
+The F1 row was rescored at the fixed 0.544 threshold on 2026-08-29; it previously
+read 0.7945 +/- 0.0009 against 0.7911, delta -0.0034. Sigma count unchanged.
 
 Statistically real -- and the only reason that judgement can be made is that the
-three-seed run established sigma first. **But it is 0.4% relative.** Spatial
+three-seed run established sigma first. **But it is 0.5% relative.** Spatial
 autocorrelation was not materially inflating the headline number.
 
 ### Per-city result: it moved the wrong way, and that is the finding
 
 | AOI | random | blocked | delta |
 |---|---|---|---|
-| Vegas | 0.8952 | 0.891 | -0.004 |
-| Paris | 0.7791 | 0.795 | **+0.016** |
-| Shanghai | 0.6877 | 0.679 | -0.009 |
-| Khartoum | 0.6272 | 0.668 | **+0.041** |
-| macro | 0.7462 | 0.7583 | **+0.012** |
+| Vegas | 0.8948 | 0.8904 | -0.0044 |
+| Paris | 0.7787 | 0.7937 | **+0.0150** |
+| Shanghai | 0.6848 | 0.6759 | -0.0089 |
+| Khartoum | 0.6254 | 0.6611 | **+0.0357** |
+| macro | 0.7459 | 0.7553 | **+0.0094** |
+| pooled | 0.7942 | 0.7904 | -0.0038 |
 
-> Both columns are per-city **best**-threshold figures (see the 2026-08-29
-> correction in the 2026-08-27 entry). Left as they are because the entry is
-> about the *delta* and both sides use the same convention, so the comparison
-> holds. The levels are not the reportable ones: at the fixed 0.544 the random
-> split gives macro 0.7459 +/- 0.0012. The blocked run has not been rescored at
-> the fixed threshold.
+> **Rescored 2026-08-29 at the fixed 0.544 threshold**, both columns, replacing
+> the best-threshold figures this table originally carried (random macro 0.7462,
+> blocked 0.7583, delta +0.012). Random column is the three-seed mean; blocked is
+> its single run. Every conclusion below survives and one number moves: the macro
+> gain is **+0.0094** rather than +0.012. Same direction, same driver, same
+> explanation.
+>
+> Rescoring was worth the minute for a reason beyond accuracy. "We report at a
+> fixed threshold everywhere except this one table" is a footnote the reader has
+> to carry, in the project whose central methodological claim is about not
+> reporting tuned thresholds.
 
 The macro average went **up** under the harder split, driven by Khartoum gaining
 0.041 -- forty times the seed noise.
@@ -794,7 +822,7 @@ already in hand and is the one the published comparison needed.
 
 ### What it changes
 
-"The random split flatters us by an unknown amount" becomes "by about 0.4% on the
+"The random split flatters us by an unknown amount" becomes "by about 0.5% on the
 pooled metric". That is a defensible sentence. It does not rescue the comparison
 entirely -- evaluation is still on a split carved from training data rather than
 the competition withheld test set, and that remains the larger gap -- but the
@@ -1154,12 +1182,12 @@ figures originally in this table (0.8952 / 0.7791 / 0.6877 / 0.6272, macro
 0.7462) were per-city *best*-threshold values; see the correction in the
 2026-08-27 entry. The difference is 0.0003.
 
-Blocked split gives macro 0.7583, pooled F1 0.7911.
+Blocked split gives macro 0.7553, pooled F1 0.7904 (fixed threshold).
 
 **Still not a claim of beating the 2017 winner**, and the reasons are unchanged
 and now individually documented: their scores are on the withheld test set while
 ours are on a val split of the training data; our random tile split is spatially
-autocorrelated, worth about 0.4% on the pooled metric (2026-08-28, first entry);
+autocorrelated, worth about 0.5% on the pooled metric (2026-08-28, first entry);
 and our IoU is on rasterised masks rather than georeferenced polygons. The
 defensible statement is that the pipeline lands in the neighbourhood of the
 published results and reproduces their per-city difficulty ordering exactly,
