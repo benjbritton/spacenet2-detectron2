@@ -19,18 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-This licence covers the code in this repository only: `src/`, `scripts/`,
-`configs/`, `docker/`, and the written record in `LAB_NOTEBOOK.md`,
-`README.md` and `REPRODUCE.md`.
-
-It does NOT cover the SpaceNet 2 dataset, anything derived from it, or the
-third-party software this project depends on. Those carry their own terms; see
-"Data attribution and licensing" and "Third-party components" in README.md.
-
-Note in particular that SpaceNet 2 is CC BY-SA 4.0. Material derived from the
-dataset -- converted label files, exported prediction vectors, overlay rasters,
-figures -- carries attribution and the ShareAlike obligation regardless of this
-MIT grant. None of that material is tracked in this repository.

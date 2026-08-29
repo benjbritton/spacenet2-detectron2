@@ -164,6 +164,10 @@ plumbing test and contributes to no result reported here.
 
 Code and written record: [MIT](LICENSE), (c) 2026 Benjamin Britton.
 
+The MIT grant is scoped: it covers the code and the written record, not the SpaceNet 2
+dataset or anything derived from it, which stays CC BY-SA 4.0 with ShareAlike intact.
+[NOTICE](NOTICE) sets out exactly what is and is not covered.
+
 The MIT grant does not extend to the SpaceNet 2 dataset or anything derived from
 it, which remains CC BY-SA 4.0 -- see above.
 

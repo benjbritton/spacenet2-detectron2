@@ -1,0 +1,46 @@
+NOTICE
+======
+
+Scope of the MIT licence, and the terms carried by everything this project
+depends on or derives from. The MIT grant in LICENSE is deliberately narrow;
+this file says what it does and does not reach.
+
+
+WHAT THE MIT LICENCE COVERS
+---------------------------
+
+The code and the written record authored in this repository:
+
+    src/                the detlab package
+    scripts/            training, conversion, evaluation and analysis scripts
+    configs/            model configs, split membership, stretch constants
+    docker/             image definition and environment lock
+    LAB_NOTEBOOK.md     the running record
+    README.md
+    REPRODUCE.md
+
+
+WHAT IT DOES NOT COVER
+----------------------
+
+**The SpaceNet 2 dataset, and anything derived from it.**
+
+    The SpaceNet Dataset by SpaceNet Partners is licensed under a Creative
+    Commons Attribution-ShareAlike 4.0 International License.
+    https://creativecommons.org/licenses/by-sa/4.0/
+
+ShareAlike is not waived by the MIT grant on the code. Material derived from
+the dataset carries attribution and the ShareAlike obligation independently of
+anything in LICENSE -- converted label files, exported prediction vectors,
+overlay rasters, and any figure rendered from the imagery.
+
+None of that derived material is tracked in this repository. It is regenerated
+from the source data by the scripts, so a clone contains no CC BY-SA material.
+Anyone who runs the pipeline produces some, and it is theirs to attribute.
+
+**Third-party software.** detectron2, PyTorch, GDAL, rasterio, shapely and the
+rest carry their own terms. See "Third-party components" in README.md.
+
+**Trained model weights.** Weights derived from SpaceNet 2 imagery are a
+derivative of CC BY-SA material. They are not tracked here, and releasing them
+would carry the ShareAlike obligation with them.
