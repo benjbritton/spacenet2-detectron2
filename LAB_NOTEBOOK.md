@@ -839,7 +839,7 @@ direction.
 The per-city spread has been measured (0.895 Vegas to 0.627 Khartoum) and shown
 to be structural at ~200 sigma, but never explained. This entry explains as much
 of it as the data supports and rules out two candidate explanations, one of which
-was mine and wrong.
+was wrong.
 
 ### Getting eyes on the data first
 
@@ -1259,8 +1259,8 @@ just far smaller than the sentence implies.
   now died the same way, and the pattern is always a plausible mechanism
   connecting two true measurements.
 
-  A fuller synthesis with the hue and grayscale results belongs in the
-  process window's write-up rather than being pre-empted here.
+  A fuller synthesis with the hue and grayscale results follows in the next
+  entry rather than being pre-empted here.
 
 
 ## 2026-08-28 - Hue: measured, apportioned 42.7% of the gap, and then ablated to nothing
@@ -1303,7 +1303,7 @@ Note the dissociation with the previous entry: Khartoum leads on *brightness*
 separation (d 1.575) and comes last on *hue* separation. Those two come apart,
 and the one that ordered with F1 was hue.
 
-**A prediction of mine that failed, recorded because it was wrong.** The
+**A prediction that failed, recorded because it was wrong.** The
 per-channel percentile stretch was expected to destroy chromatic signal before the
 network sees it. It does the opposite -- being an independent per-channel
 normalisation it acts as a per-tile white balance and **amplifies** hue
@@ -1583,14 +1583,15 @@ difference is file-mode reporting across the SMB boundary, not content. **Check
 git state from inside the distro**, or a pre-publication audit reports changes
 that do not exist.
 
-### Two windows, one working tree
+### Two concurrent sessions, one working tree
 
-Both Claude sessions on this project operate on the same directory, not on
-separate clones. This was not understood in the query window, which issued
-`git fetch && git reset --hard origin/master` as sync instructions after the
-rewrite. On a shared tree that discards whatever the other session has
-uncommitted; it was harmless here only because the tree happened to be clean.
-The process window declined to run it and said why.
+Work on this repository ran in two terminals at once, against the same working
+directory rather than against separate clones. That was misunderstood in one of
+them, which issued `git fetch && git reset --hard origin/master` as sync
+instructions after the history rewrite. Between clones that is routine; on a
+shared tree it discards whatever the other session has uncommitted, and it was
+harmless here only because the tree happened to be clean. The instruction was
+declined rather than run, and the reason given.
 
 The tell had already appeared and been misread: a `git pull` reporting "Already
 up to date" while the other session's commits were plainly present. Recorded
