@@ -591,7 +591,7 @@ optimistic.
 
 Milestone B stated honestly: the plan asks for mAP@[0.5:0.95] within 20% of a
 published reference, and **no published mAP for SN2 exists**. Substituting F1,
-the metric the reference actually reports, the target is >= 0.554 against 0.7462
+the metric the reference actually reports, the target is >= 0.554 against 0.7459
 achieved.
 
 ### The balloon LR-decay finding does not generalize
@@ -766,6 +766,13 @@ autocorrelation was not materially inflating the headline number.
 | Shanghai | 0.6877 | 0.679 | -0.009 |
 | Khartoum | 0.6272 | 0.668 | **+0.041** |
 | macro | 0.7462 | 0.7583 | **+0.012** |
+
+> Both columns are per-city **best**-threshold figures (see the 2026-08-29
+> correction in the 2026-08-27 entry). Left as they are because the entry is
+> about the *delta* and both sides use the same convention, so the comparison
+> holds. The levels are not the reportable ones: at the fixed 0.544 the random
+> split gives macro 0.7459 +/- 0.0012. The blocked run has not been rescored at
+> the fixed threshold.
 
 The macro average went **up** under the harder split, driven by Khartoum gaining
 0.041 -- forty times the seed noise.
@@ -1069,7 +1076,7 @@ Three details from the paper settle things this project had to assume:
 
 1. **"Total Score" is the arithmetic mean of the per-city F1** -- an explicit
    macro average. The 2026-08-27 entry argued from first principles that macro
-   (0.7462) rather than pooled micro (0.7935) is the comparable figure, because
+   (0.7459) rather than pooled micro (0.7935) is the comparable figure, because
    Vegas is 51% of val instances. That argument is now citable rather than merely
    defensible: micro was never what the competition reported.
 2. **The metric is F1 at IoU >= 0.5 on polygons.** Confirms both the operating
@@ -1160,7 +1167,7 @@ under evaluation conditions that favour it by an amount partly quantified and
 partly not.
 
 Milestone B's stated target -- F1 >= 0.554, within 20% of the reference -- is met
-against 0.7462, and is also clear of both published baselines.
+against 0.7459, and is also clear of both published baselines.
 
 ### The paper states a cause for Khartoum. Half of it is wrong.
 
