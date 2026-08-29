@@ -566,8 +566,23 @@ than georeferenced polygons.
 
 Note also that the pooled micro-averaged F1 of 0.7935 is NOT the number to
 compare -- Vegas alone is 51% of val instances and is the easiest city, so micro
-averaging weights the easy case. The macro average of 0.7462 is the comparable
-figure.
+averaging weights the easy case. The macro average is the comparable figure.
+
+> **Corrected 2026-08-29.** This said 0.7462, and so did every later quotation of
+> it, including the public README. **0.7462 is the mean of per-city
+> BEST-threshold F1** -- a threshold tuned per city on the set being scored,
+> which is the practice this very entry argues against two paragraphs above. The
+> table at the top of this section had the right number (0.7447) all along; the
+> prose drifted to the flattering one and everything downstream inherited it.
+>
+> The reportable figure, every city at the fixed train-selected 0.544, recomputed
+> across all three seeds: **macro 0.7459 +/- 0.0012** (Vegas 0.8948, Paris
+> 0.7787, Shanghai 0.6848, Khartoum 0.6254).
+>
+> The correction is worth 0.0003. That is the part to keep: the honest number and
+> the tuned one were indistinguishable, so nothing was ever gained by the slip --
+> which is exactly why it survived six months of quotation unnoticed. A number
+> being unimportant is what lets it go unchecked.
 
 **What is a real signal:** the city difficulty ordering reproduces XD_XD exactly,
 Vegas >> Paris > Shanghai > Khartoum, with similar gaps. The pipeline recovers
@@ -1121,11 +1136,16 @@ carries no external claim.
 
 | | ours (random split, 3 seeds) | XD_XD | YOLT | MNC |
 |---|---|---|---|---|
-| Vegas | 0.8952 | 0.885 | | |
-| Paris | 0.7791 | 0.745 | | |
-| Shanghai | 0.6877 | 0.597 | | |
-| Khartoum | 0.6272 | 0.544 | | |
-| **macro** | **0.7462** | **0.693** | 0.60 | 0.57 |
+| Vegas | 0.8948 | 0.885 | | |
+| Paris | 0.7787 | 0.745 | | |
+| Shanghai | 0.6848 | 0.597 | | |
+| Khartoum | 0.6254 | 0.544 | | |
+| **macro** | **0.7459** +/- 0.0012 | **0.693** | 0.60 | 0.57 |
+
+Every city at the **fixed** train-selected threshold 0.544, 3-seed mean. The
+figures originally in this table (0.8952 / 0.7791 / 0.6877 / 0.6272, macro
+0.7462) were per-city *best*-threshold values; see the correction in the
+2026-08-27 entry. The difference is 0.0003.
 
 Blocked split gives macro 0.7583, pooled F1 0.7911.
 
