@@ -300,14 +300,18 @@ def main():
         for name, res in evaluate_per_aoi(cfg, trainer.model, per_aoi).items():
             segm = res.get("segm", {})
             sn = res.get("spacenet", {})
-            print("  %-28s segm AP %6.2f  APs %6.2f  |  F1 %5.3f @ %.2f  "
-                  "(P %5.3f R %5.3f)"
+            # F1 at the FIXED report threshold, not the tuned ceiling. The
+            # evaluator used to lead with the tuned value and it reached the
+            # public README as a result; see SpaceNetF1Evaluator.
+            print("  %-28s segm AP %6.2f  APs %6.2f  |  F1 %5.3f @ %.2f fixed  "
+                  "(P %5.3f R %5.3f)   [tuned ceiling %5.3f]"
                   % (name, segm.get("AP", float("nan")),
                      segm.get("APs", float("nan")),
-                     sn.get("f1_at_best", float("nan")),
-                     sn.get("best_threshold", float("nan")),
-                     sn.get("precision_at_best", float("nan")),
-                     sn.get("recall_at_best", float("nan"))))
+                     sn.get("f1", float("nan")),
+                     sn.get("report_threshold", float("nan")),
+                     sn.get("precision", float("nan")),
+                     sn.get("recall", float("nan")),
+                     sn.get("f1_tuned", float("nan"))))
             if run is not None:
                 city = name.split("_val_")[-1]
                 run.summary.update({"final/%s/%s" % (city, k): v

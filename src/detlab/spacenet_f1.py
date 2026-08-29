@@ -167,11 +167,40 @@ def sweep(records, n_gt):
 
 
 class SpaceNetF1Evaluator(DatasetEvaluator):
-    """Micro-averaged SpaceNet F1 at IoU 0.5, with a score-threshold sweep."""
+    """Micro-averaged SpaceNet F1 at IoU 0.5, reported at a FIXED threshold.
 
-    def __init__(self, dataset_name, iou_threshold=IOU_THRESHOLD):
+    The headline key is `f1`, computed at `report_threshold`. The best value over
+    a sweep of every threshold is still returned, under `f1_tuned`, but it is
+    named so that it cannot be mistaken for a result.
+
+    WHY THE NAMING IS LOAD-BEARING
+    ------------------------------
+    This class used to return `sweep()` directly, whose first key is
+    `f1_at_best`. Everything logged during training -- metrics.json, W&B, and
+    every table later built from a training log -- therefore carried the tuned
+    number, while the reportable figure appeared only when score_f1.py or
+    f1_report.py was run afterwards with an explicit --threshold.
+
+    That is exactly how a tuned value reached the public README headline as this
+    project's central result, in a project whose central methodological claim is
+    that a threshold chosen on the scored set is not a result. The module
+    docstring had said `f1_at_best` was a diagnostic ceiling. Documenting it was
+    not enough: it was the most prominent number the evaluator emitted, so it got
+    quoted. Prominence beat documentation.
+
+    Runs before 2026-08-29 logged the tuned value under `f1_at_best`. Numbers
+    transcribed from those logs are tuned unless a fixed threshold is stated.
+    """
+
+    def __init__(self, dataset_name, iou_threshold=IOU_THRESHOLD,
+                 report_threshold=0.5):
         self._dataset_name = dataset_name
         self._iou = iou_threshold
+        # Default 0.5 rather than this project's 0.544: the reporting threshold
+        # was selected on training data for THIS model, and baking a run-specific
+        # constant into a general evaluator would make its output silently wrong
+        # for any other model. Pass it explicitly when it is known.
+        self._report_threshold = report_threshold
         # Ground truth comes from the DatasetCatalog rather than the batched
         # inputs: the test mapper drops "annotations", by design, so the inputs
         # reaching an evaluator carry no labels.
@@ -217,9 +246,28 @@ class SpaceNetF1Evaluator(DatasetEvaluator):
         n_gt = sum(n_gt)
         n_pred = sum(n_pred)
 
-        res = sweep(recs, n_gt)
-        res["n_gt"] = n_gt
-        res["n_pred"] = n_pred
+        swept = sweep(recs, n_gt)
+        thr = self._report_threshold
+        tp = sum(1 for s, ok in recs if s >= thr and ok)
+        fp = sum(1 for s, ok in recs if s >= thr and not ok)
+        prec = tp / float(tp + fp) if tp + fp else 0.0
+        rec = tp / float(n_gt) if n_gt else 0.0
+        f1 = 0.0 if prec + rec == 0 else 2 * prec * rec / (prec + rec)
+
+        # Reportable first, tuned second and labelled. Ordering matters as much
+        # as naming: whatever appears first is what gets read off a log.
+        res = OrderedDict([
+            ("f1", f1),
+            ("precision", prec),
+            ("recall", rec),
+            ("report_threshold", thr),
+            # Diagnostic ceiling. Chosen ON the set being scored, so it is not
+            # reportable -- see the class docstring.
+            ("f1_tuned", swept["f1_at_best"]),
+            ("tuned_threshold", swept["best_threshold"]),
+            ("n_gt", n_gt),
+            ("n_pred", n_pred),
+        ])
         return OrderedDict([("spacenet", res)])
 
 
@@ -263,6 +311,18 @@ def _selftest():
         {"segmentation": [[0, 0, 10, 0, 10, 10, 0, 10],
                           [50, 50, 60, 50, 60, 60, 50, 60]], "iscrowd": 0}]}
     assert len(_gt_rles(rec)) == 1
+
+    # The reporting contract itself: f1 must be the fixed-threshold value and
+    # must not silently track the tuned one.
+    recs = [(0.9, True), (0.8, False), (0.3, True)]
+    s = sweep(recs, n_gt=2)
+    assert s["f1_at_best"] >= s["f1_at_0.5"], s
+    at_half = [r for r in recs if r[0] >= 0.5]
+    tp = sum(1 for _, ok in at_half if ok)
+    fp = len(at_half) - tp
+    p = tp / float(tp + fp)
+    r = tp / 2.0
+    assert abs(s["f1_at_0.5"] - 2 * p * r / (p + r)) < 1e-9, s
 
     print("SpaceNetF1Evaluator self-test: all assertions passed")
 
