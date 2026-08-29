@@ -9,10 +9,15 @@ against the published competition results.
 
 | | macro F1 | Vegas | Paris | Shanghai | Khartoum |
 |---|---|---|---|---|---|
-| **this work** (3 seeds) | **0.7462** | 0.8952 | 0.7791 | 0.6877 | 0.6272 |
+| **this work** (3 seeds) | **0.7459** ± 0.0012 | 0.8948 | 0.7787 | 0.6848 | 0.6254 |
 | XD_XD, 2017 winner | 0.6930 | 0.885 | 0.745 | 0.597 | 0.544 |
 | YOLT baseline | 0.6000 | | | | |
 | modified MNC baseline | 0.5700 | | | | |
+
+Every city is scored at **one** score threshold, 0.544, selected on the training
+split and never on the data being reported. Tuning a threshold per city on the
+scored set gives 0.7462 instead — better, and not a result. Macro average,
+because that is how the competition defines Total Score.
 
 **This is not a claim of beating the 2017 winner.** Those scores are on the
 competition's withheld test set; these are on a validation split carved from the

@@ -206,15 +206,19 @@ and changed nothing.
 
 ### Blocked split (2026-08-28)
 
-Point `coco_dir` at the blocked COCO files `make_blocked_split.py` wrote:
-
 ```bash
-./scripts/run.sh python scripts/train_spacenet.py --seed 0 \
-    --data-root data/spacenet2 \
-    --output outputs/spacenet2_blocked --run-name spacenet2-blocked
+./scripts/run.sh python scripts/train_spacenet.py --seed 0 --split blocked \
+    --output outputs/spacenet2_r50fpn_blocked --run-name spacenet2-blocked
 ```
 
 Expected: segm AP 49.179, pooled F1 0.7911, macro 0.7583.
+
+**`--split blocked` is the only thing that selects the blocked data**, and
+omitting it fails silently rather than loudly. `train_spacenet.py:196` uses it to
+point `coco_dir` at `data/spacenet2/coco_blocked` and to register under the
+`spacenet2b` prefix; without the flag the run trains the ordinary baseline and
+reports about 49.50, with nothing to indicate the wrong split was used.
+`--data-root` selects nothing — it names the parent directory in both cases.
 
 ### Balloon (Milestone A)
 
@@ -225,6 +229,27 @@ Expected: segm AP 49.179, pooled F1 0.7911, macro 0.7583.
 
 Expected: segm AP ~81.5. `segm/APs` on balloon is computed over **three**
 validation instances and has CV 59.8% across seeds -- do not read it.
+
+### Grayscale ablation (2026-08-28)
+
+The run that refuted the hue finding, so it belongs here rather than only in the
+notebook.
+
+```bash
+./scripts/run.sh python scripts/train_spacenet.py --grayscale --seed 0 \
+    --output outputs/spacenet2_r50fpn_gray \
+    --run-name spacenet2-r50fpn-seed0-GRAYSCALE
+```
+
+Expected: segm AP 49.11, pooled F1 0.7895, per-AOI 0.893 / 0.777 / 0.678 / 0.626,
+Vegas-Khartoum gap 0.267 against 0.268 for colour.
+
+`--grayscale` collapses chroma *after* the stretch and replicates the single
+channel three times, so input shape and the COCO-pretrained stem stay identical
+and colour is the only variable.
+
+One seed against a three-seed colour baseline: only the pooled delta (-0.004,
+about 4 sigma) is established. Small per-city deltas are not.
 
 ---
 
@@ -248,10 +273,26 @@ over a sweep of the set being scored is a tuned hyperparameter presented as a
 result. Selected 0.544 on train, 0.539 on a val half; on held-out val half B
 they give 0.7939 and 0.7941. Full rigour cost 0.0015 of F1.
 
-Expected per-AOI at 0.544: Vegas 0.8947, Paris 0.7773, Shanghai 0.6862,
-Khartoum 0.6267; macro 0.7462 against XD_XD's 0.693. **Macro, not pooled micro**
--- the SpaceNet paper defines Total Score as the arithmetic mean of per-city F1,
-and Vegas alone is 51% of val instances.
+Expected per-AOI **at the fixed threshold 0.544**, 3-seed mean:
+
+| AOI | seed 0 | seed 1 | seed 2 | mean | sd |
+|---|---|---|---|---|---|
+| Vegas | 0.8941 | 0.8950 | 0.8954 | 0.8948 | 0.0007 |
+| Paris | 0.7762 | 0.7823 | 0.7778 | 0.7787 | 0.0032 |
+| Shanghai | 0.6828 | 0.6859 | 0.6858 | 0.6848 | 0.0018 |
+| Khartoum | 0.6257 | 0.6250 | 0.6254 | 0.6254 | 0.0004 |
+| **macro** | 0.7447 | 0.7470 | 0.7461 | **0.7459** | 0.0012 |
+
+Against XD_XD's 0.693. **Macro, not pooled micro** -- the SpaceNet paper defines
+Total Score as the arithmetic mean of per-city F1, and Vegas alone is 51% of val
+instances.
+
+**Do not confuse these with the per-city best-threshold figures** (Vegas 0.8947,
+Paris 0.7773, Shanghai 0.6862, Khartoum 0.6267, macro 0.7462), which also appear
+in the notebook. Those tune a threshold per city on the set being scored, which
+is the practice the paragraph above argues against; they are a diagnostic, not a
+reportable result. The difference is 0.0003 on the macro -- full rigour is
+nearly free here, which is the point.
 
 ---
 
