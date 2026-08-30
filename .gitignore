@@ -45,3 +45,9 @@ desktop.ini
 
 # Logs
 *.log
+
+# Office / editor lock and temp files. An ONLYOFFICE lock file reached a
+# commit on 2026-08-30 carrying username, hostname and a local path.
+.~lock.*#
+~
+*.tmp
