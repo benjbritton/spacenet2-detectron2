@@ -1,0 +1,15 @@
+# ARM B -- Mask R-CNN with the anchor ladder shifted down one octave.
+#
+# The only difference from arm A. Class medians in native pixels are 25.0
+# (building), 49.2 (platform) and 131.0 (aguada), which sit almost exactly one
+# octave below the stock ladder; shifting the ladder rather than upscaling the
+# input buys the same coverage without paying 4.5x the compute to interpolate
+# detail that 0.5 m data does not contain.
+
+_BASE_: "chactun_base.yaml"
+
+MODEL:
+  ANCHOR_GENERATOR:
+    SIZES: [[16], [32], [64], [128], [256]]
+
+OUTPUT_DIR: "outputs/chactun_B_maskrcnn_shifted_anchors"

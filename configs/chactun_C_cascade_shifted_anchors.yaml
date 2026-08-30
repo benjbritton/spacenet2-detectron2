@@ -1,0 +1,23 @@
+# ARM C -- Cascade Mask R-CNN, anchors identical to arm B.
+#
+# B vs C isolates the detection head, since the zoo configs for the two differ
+# in exactly one field, ROI_HEADS.NAME (StandardROIHeads against CascadeROIHeads).
+#
+# PREDICTION ON THE RECORD, made before running: AP50 and F1@0.5 land within
+# seed noise of arm B; AP75 favours this arm visibly; AP(0.5:0.95) favours it
+# partly spuriously. The reasoning is that Cascade buys its gain at strict IoU,
+# and strict IoU is where this ground truth stops being able to resolve
+# anything -- 13.2% of buildings are unmeasurable at IoU 0.75 and 90.8% at 0.90,
+# from raster quantisation alone, before the model makes an error. Cascade also
+# refines boxes rather than masks, and footprints are what this study reports.
+#
+# If AP50 moves materially, that reasoning is wrong and the ceiling analysis in
+# scripts/chactun_iou_ceiling.py needs revisiting.
+
+_BASE_: "chactun_base.yaml"
+
+MODEL:
+  ANCHOR_GENERATOR:
+    SIZES: [[16], [32], [64], [128], [256]]
+
+OUTPUT_DIR: "outputs/chactun_C_cascade_shifted_anchors"

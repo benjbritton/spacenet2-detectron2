@@ -1,0 +1,16 @@
+# ARM A -- Mask R-CNN with the stock detectron2 anchor ladder. The control.
+#
+# This arm exists to make the anchor claim falsifiable rather than assumed.
+# Measured on the converted annotations, at the 800 px input this config uses,
+# 31.8% of buildings fall below the smallest 32 px anchor and the median
+# building sits at 41.6 px. That predicts arm B should win. Milestone B has a
+# record of mechanisms that looked equally obvious and then died under ablation
+# -- anchor scale was the fifth -- so the prediction is tested, not trusted.
+
+_BASE_: "chactun_base.yaml"
+
+MODEL:
+  ANCHOR_GENERATOR:
+    SIZES: [[32], [64], [128], [256], [512]]
+
+OUTPUT_DIR: "outputs/chactun_A_maskrcnn_default_anchors"

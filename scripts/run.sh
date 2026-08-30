@@ -31,6 +31,25 @@ mkdir -p "$CACHE"
 NETRC="${HOME}/.netrc"
 [ -f "$NETRC" ] || touch "$NETRC"
 
+# Datasets that live outside the repo are symlinked into data/, and a bind mount
+# does not follow a symlink whose target is not itself mounted -- the link
+# resolves to a path the container has never heard of. data/spacenet2 is a real
+# directory and needs nothing; data/chactun points at /home/benja/m2/data/chactun
+# and would silently appear as a broken link.
+#
+# Each symlinked dataset is therefore mounted at its own absolute path, so the
+# link resolves inside the container exactly as it does outside. Read-only:
+# nothing in a training run should be writing back into the source imagery.
+DATA_MOUNTS=()
+for d in "${REPO}"/data/*; do
+  if [ -L "$d" ]; then
+    tgt="$(readlink -f "$d" || true)"
+    if [ -n "$tgt" ] && [ -d "$tgt" ]; then
+      DATA_MOUNTS+=(-v "${tgt}:${tgt}:ro")
+    fi
+  fi
+done
+
 # Allocate a TTY only when there actually is one. `-t` without a terminal
 # (CI, piped output, non-interactive shell) makes docker refuse to start.
 TTY_FLAGS="-i"
@@ -56,6 +75,7 @@ exec docker run --rm ${TTY_FLAGS} ${USER_FLAGS} \
   --gpus all \
   --shm-size=8g \
   -v "${REPO}:/workspace" \
+  ${DATA_MOUNTS[@]+"${DATA_MOUNTS[@]}"} \
   -v "${CACHE}:/cache" \
   -v "${NETRC}:/cache/.netrc" \
   -e HOME=/cache \

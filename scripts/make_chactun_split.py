@@ -157,11 +157,110 @@ def search_split(lab, counts, ids, val_frac, restarts, seed):
     return best, total, cl_tiles
 
 
+
+def make_folds(lab, counts, ids, n_folds, restarts, seed):
+    """Partition whole clusters into n_folds groups, balanced on every class.
+
+    Cross-validation is used here rather than one held-out split because the
+    val set is small enough that WHICH tiles are held out matters more than
+    which seed is used. It also has a specific payoff for aguadas: with 76
+    instances in the whole dataset a single split evaluates about 15 of them,
+    which is not a measurement. Over the full set of folds every instance is
+    evaluated exactly once.
+
+    Clusters, not tiles, are the unit assigned, so appearance blocking is
+    preserved inside every fold.
+    """
+    k = lab.max() + 1
+    cl_tiles = [[ids[i] for i in np.nonzero(lab == j)[0]] for j in range(k)]
+    total = {c: sum(counts[t][c] for t in ids) for c in CLASSES}
+    target = 1.0 / n_folds
+
+    order_by_size = sorted(range(k), key=lambda j: -len(cl_tiles[j]))
+    best, best_obj = None, np.inf
+    rng = np.random.default_rng(seed)
+
+    for r in range(restarts):
+        # largest-first placement, with the order jittered per restart so the
+        # search is not stuck with one greedy answer
+        order = list(order_by_size)
+        if r:
+            jit = rng.permutation(k)
+            order.sort(key=lambda j: (-len(cl_tiles[j]), jit[j]))
+
+        folds = [[] for _ in range(n_folds)]
+        fc = [Counter() for _ in range(n_folds)]
+        ft = [0] * n_folds
+        def dev(cnt, ntile):
+            d = abs(ntile / len(ids) - target)
+            for c in CLASSES:
+                d += abs(cnt[c] / max(total[c], 1) - target)
+            return d
+
+        for j in order:
+            add = {c: sum(counts[t][c] for t in cl_tiles[j]) for c in CLASSES}
+            size = len(cl_tiles[j])
+            # cost is the DELTA to the global imbalance, so an empty fold reads
+            # as a large improvement rather than a large absolute deviation
+            costs = []
+            for f in range(n_folds):
+                before = dev(fc[f], ft[f])
+                after = dev({c: fc[f][c] + add[c] for c in CLASSES}, ft[f] + size)
+                costs.append(after - before)
+            f = int(np.argmin(costs))
+            folds[f].append(j)
+            ft[f] += size
+            for c in CLASSES:
+                fc[f][c] += add[c]
+
+        obj = max(max(abs(fc[f][c] / max(total[c], 1) - target) for c in CLASSES)
+                  for f in range(n_folds))
+        obj += max(abs(ft[f] / len(ids) - target) for f in range(n_folds))
+        if obj < best_obj:
+            best_obj, best = obj, (folds, fc, ft)
+
+    folds, fc, ft = best
+    fold_tiles = [sorted(t for j in folds[f] for t in cl_tiles[j])
+                  for f in range(n_folds)]
+    return fold_tiles, folds, total
+
+
+def report_folds(fold_tiles, counts, total, ids, z):
+    print()
+    print("=== %d folds ===" % len(fold_tiles))
+    print("  %-6s %8s %10s %10s %10s" % ("fold", "tiles", "building",
+                                         "platform", "aguada"))
+    for f, tiles in enumerate(fold_tiles):
+        row = [sum(counts[t][c] for t in tiles) for c in CLASSES]
+        print("  %-6d %8d %10d %10d %10d" % (f, len(tiles), row[0], row[1], row[2]))
+    print("  %-6s %8d %10d %10d %10d"
+          % ("all", sum(len(x) for x in fold_tiles),
+             total["building"], total["platform"], total["aguada"]))
+    print()
+    print("  share of each class per fold, target %.1f%%:"
+          % (100.0 / len(fold_tiles)))
+    print("  %-6s %10s %10s %10s" % ("fold", "building", "platform", "aguada"))
+    for f, tiles in enumerate(fold_tiles):
+        print("  %-6d %9.1f%% %9.1f%% %9.1f%%"
+              % (f, 100.0 * sum(counts[t]["building"] for t in tiles) / total["building"],
+                 100.0 * sum(counts[t]["platform"] for t in tiles) / total["platform"],
+                 100.0 * sum(counts[t]["aguada"] for t in tiles) / total["aguada"]))
+    print()
+    print("  leak check per fold (val = that fold, train = the rest):")
+    leaks = []
+    for f, tiles in enumerate(fold_tiles):
+        leaks.append(cross_split_similarity(z, ids, tiles, "fold %d" % f))
+    return leaks
+
+
 def cross_split_similarity(z, ids, val_ids, name):
     """Worst-case leak: how similar is the closest train tile to a val tile?"""
     idx = {t: i for i, t in enumerate(ids)}
-    v = np.array([idx[t] for t in val_ids])
-    tr = np.array([idx[t] for t in ids if t not in set(val_ids)])
+    v = np.array([idx[t] for t in val_ids], dtype=int)
+    tr = np.array([idx[t] for t in ids if t not in set(val_ids)], dtype=int)
+    if len(v) == 0 or len(tr) == 0:
+        print("  %-18s EMPTY -- split is degenerate" % name)
+        return {"mean": float("nan"), "p95": float("nan"), "max": float("nan")}
     zv, zt = z[v], z[tr]
     zv = zv / np.maximum(np.linalg.norm(zv, axis=1, keepdims=True), 1e-12)
     zt = zt / np.maximum(np.linalg.norm(zt, axis=1, keepdims=True), 1e-12)
@@ -184,6 +283,8 @@ def main():
     p.add_argument("--restarts", type=int, default=2000)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--cache", default=None)
+    p.add_argument("--folds", type=int, default=0,
+                   help="emit N cross-validation folds instead of one split")
     a = p.parse_args()
 
     lidar = os.path.join(a.root, "lidar")
@@ -198,6 +299,30 @@ def main():
           % (a.clusters, sizes.min(), int(np.median(sizes)), sizes.max()))
 
     counts = per_tile_counts(a.coco, ids)
+
+    if a.folds:
+        fold_tiles, fold_clusters, total = make_folds(
+            lab, counts, ids, a.folds, a.restarts, a.seed)
+        leaks = report_folds(fold_tiles, counts, total, ids, z)
+        os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
+        json.dump({
+            "method": "similarity-blocked %d-fold cross-validation" % a.folds,
+            "why": "no CRS or geotransform, layout not recoverable from pixels; "
+                   "and with 76 aguadas a single split evaluates ~15 of them, "
+                   "which is not a measurement. Over all folds every instance "
+                   "is evaluated exactly once.",
+            "limitation": "blocks near-duplicate appearance, not geography",
+            "clusters": a.clusters,
+            "n_folds": a.folds,
+            "seed": a.seed,
+            "leak_check_per_fold": leaks,
+            "fold_clusters": [[int(c) for c in f] for f in fold_clusters],
+            "folds": fold_tiles,
+        }, open(a.out, "w"), indent=1)
+        print()
+        print("wrote %s" % a.out)
+        return
+
     (val_clusters, val_ids), total, _ = search_split(
         lab, counts, ids, a.val_frac, a.restarts, a.seed)
     val_set = set(val_ids)
