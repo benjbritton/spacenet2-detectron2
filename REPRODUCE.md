@@ -341,6 +341,41 @@ exposed as `\\wsl.localhost\Ubuntu-24.04` while the distro runs. Map it with
 
 ---
 
+## Implemented but NOT evaluated
+
+Stated so that presence in the codebase is not mistaken for validation.
+
+**`--stretch per_city`.** `Stretch` supports two modes for the 16-bit to 8-bit
+conversion. `per_image` computes 2-98 percentiles from the tile being loaded and
+is what produced every result in this repository. `per_city` uses the constants
+in `configs/spacenet2_stretch.json`, measured over all 10592 tiles, so that two tiles from the same AOI
+receive the same stretch.
+
+**No `per_city` run has ever been made.** The constants are measured and the code
+path is exercised only by the mapper test. The argument for it -- that per-image
+percentiles destroy cross-tile radiometric consistency -- is untested reasoning,
+which in this project has a poor record: four plausible mechanisms have now been
+falsified by the experiment that checked them.
+
+What is known bears on the expected result. The per-image stretch is effectively a
+per-tile white balance, and it AMPLIFIES roof-to-ground hue separation by 5x to
+13x over raw sensor values (2026-08-28 entry). The grayscale ablation then showed
+the detector extracts almost nothing from chroma: removing colour entirely costs
+0.004 pooled F1 and closes the Vegas-Khartoum gap by 0.4 percent. A model
+indifferent to colour should be largely indifferent to which colour normalisation
+it is handed, so the honest prior is that this comparison returns nothing.
+
+Settling it costs one run, not three. A single `per_city` run against the existing
+three-seed `per_image` baseline resolves any difference above about 0.004 F1,
+which is below anything worth acting on. It stops being optional if the stretch
+code is carried onto different imagery, where it is no longer a loose end but a
+dependency.
+
+```bash
+./scripts/run.sh python scripts/train_spacenet.py --stretch per_city --seed 0 \
+    --output outputs/spacenet2_r50fpn_percity --run-name spacenet2-per_city-seed0
+```
+
 ## What is not reproducible from this repo
 
 Stated so a reader does not discover it the hard way.
