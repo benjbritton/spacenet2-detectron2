@@ -1,0 +1,48 @@
+Chactun matrix: 21 runs, arms A B C
+started 2026-08-31T00:14:07-04:00
+
+[1/21] armA-fold0-seed0: starting 00:14:07
+[1/21] armA-fold0-seed0: done 48m  segmAP 38.36  AP50 63.90  AP75 36.90  bld 37.73  plat 48.56  agu 28.80
+[2/21] armA-fold1-seed0: starting 01:02:09
+[2/21] armA-fold1-seed0: done 48m  segmAP 36.30  AP50 58.96  AP75 37.77  bld 40.11  plat 47.95  agu 20.85
+[3/21] armA-fold2-seed0: starting 01:50:35
+[3/21] armA-fold2-seed0: done 47m  segmAP 39.19  AP50 65.09  AP75 40.91  bld 39.00  plat 46.72  agu 31.84
+[4/21] armA-fold3-seed0: starting 02:38:25
+[4/21] armA-fold3-seed0: done 47m  segmAP 42.61  AP50 63.82  AP75 45.78  bld 39.07  plat 50.85  agu 37.92
+[5/21] armA-fold4-seed0: starting 03:25:45
+[5/21] armA-fold4-seed0: done 46m  segmAP 37.08  AP50 58.48  AP75 40.23  bld 40.87  plat 49.36  agu 21.02
+[6/21] armB-fold0-seed0: starting 04:12:11
+[6/21] armB-fold0-seed0: done 47m  segmAP 37.34  AP50 63.38  AP75 36.05  bld 37.20  plat 49.26  agu 25.56
+[7/21] armB-fold1-seed0: starting 04:59:43
+[7/21] armB-fold1-seed0: done 47m  segmAP 35.51  AP50 59.29  AP75 35.15  bld 39.14  plat 47.16  agu 20.24
+[8/21] armB-fold2-seed0: starting 05:47:38
+[8/21] armB-fold2-seed0: done 47m  segmAP 40.18  AP50 62.87  AP75 41.64  bld 38.42  plat 46.23  agu 35.89
+[9/21] armB-fold3-seed0: starting 06:35:23
+[9/21] armB-fold3-seed0: done 46m  segmAP 41.16  AP50 63.43  AP75 44.52  bld 39.05  plat 50.99  agu 33.44
+[10/21] armB-fold4-seed0: starting 07:22:22
+[10/21] armB-fold4-seed0: done 46m  segmAP 35.34  AP50 56.09  AP75 37.11  bld 41.38  plat 47.89  agu 16.73
+[11/21] armC-fold0-seed0: starting 08:08:35
+[11/21] armC-fold0-seed0: done 60m  segmAP 39.47  AP50 64.05  AP75 38.39  bld 38.35  plat 49.61  agu 30.43
+[12/21] armC-fold1-seed0: starting 09:09:23
+[12/21] armC-fold1-seed0: done 61m  segmAP 34.88  AP50 55.36  AP75 35.17  bld 39.72  plat 46.40  agu 18.51
+[13/21] armC-fold2-seed0: starting 10:10:29
+[13/21] armC-fold2-seed0: done 60m  segmAP 37.95  AP50 63.66  AP75 41.58  bld 39.64  plat 47.93  agu 26.30
+[14/21] armC-fold3-seed0: starting 11:10:32
+[14/21] armC-fold3-seed0: done 59m  segmAP 42.37  AP50 63.57  AP75 44.78  bld 40.48  plat 51.26  agu 35.38
+[15/21] armC-fold4-seed0: starting 12:09:49
+[15/21] armC-fold4-seed0: done 58m  segmAP 38.24  AP50 56.65  AP75 45.69  bld 40.89  plat 48.67  agu 25.16
+[16/21] armA-fold0-seed1: starting 13:08:12
+[16/21] armA-fold0-seed1: done 48m  segmAP 37.51  AP50 65.80  AP75 36.67  bld 37.60  plat 48.56  agu 26.38
+[17/21] armA-fold0-seed2: starting 13:56:18
+[17/21] armA-fold0-seed2: done 48m  segmAP 40.22  AP50 64.73  AP75 40.82  bld 37.11  plat 49.28  agu 34.28
+[18/21] armB-fold0-seed1: starting 14:44:48
+[18/21] armB-fold0-seed1: done 47m  segmAP 38.30  AP50 63.98  AP75 38.52  bld 37.85  plat 49.40  agu 27.64
+[19/21] armB-fold0-seed2: starting 15:32:25
+[19/21] armB-fold0-seed2: done 47m  segmAP 39.01  AP50 66.17  AP75 37.36  bld 37.37  plat 49.33  agu 30.34
+[20/21] armC-fold0-seed1: starting 16:20:09
+[20/21] armC-fold0-seed1: done 60m  segmAP 37.89  AP50 62.56  AP75 36.51  bld 38.86  plat 48.67  agu 26.12
+[21/21] armC-fold0-seed2: starting 17:20:36
+[21/21] armC-fold0-seed2: done 60m  segmAP 38.92  AP50 63.61  AP75 41.61  bld 38.83  plat 49.17  agu 28.75
+
+finished 2026-08-31T18:21:19-04:00 after 18h7m
+skipped 0, failed 0
