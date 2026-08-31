@@ -51,12 +51,36 @@ SOLVER:
   WARMUP_ITERS: 500       # 12.5% of the schedule; the SpaceNet value of 1000
                           # would be a quarter of this much shorter run
 
-  # Folds hold out ~20%, leaving about 1650-1760 training tiles, so at batch 16
-  # one epoch is ~104 iterations and 4000 iterations is ~38 epochs. That is a
-  # deliberately larger epoch budget than the SpaceNet run's 11.3: this dataset
-  # is five times smaller, and small datasets need more passes, not fewer.
-  MAX_ITER: 4000
-  STEPS: (2800, 3600)
+  # MEASURED on two pilot runs of arm A / fold 0, not reasoned from epoch counts.
+  #
+  # A 4000-iteration run with decay at (2800, 3600) peaks at iteration 2999 --
+  # immediately after the first decay -- and declines from there:
+  #
+  #     iter    segm AP   AP50   building  platform  aguada
+  #     2499     33.98    63.45     34.52     48.47   18.95
+  #     2999     40.33    65.15     37.47     49.38   34.15   <- peak
+  #     3499     39.93    64.90     37.01     48.95   33.84
+  #     4000     39.15    64.43     36.91     47.95   32.59
+  #
+  # Everything after 3000 is dead: the second decay at 3600 changes nothing and
+  # the tail drifts down. So the schedule stops at 3000 with a single decay.
+  #
+  # A 2000-iteration run with decay at (1400, 1800) was also tried, to test
+  # whether the flat stretch from 1000 to 2500 could be cut. It cannot, and the
+  # reason is instructive: that stretch is flat in AGGREGATE AP only. Building
+  # and platform have converged by iteration 999, while aguada is still climbing
+  # (13.7 -> 14.6 -> 14.5 -> 19.0) and only jumps at the decay. Decaying early
+  # catches the rare class mid-climb:
+  #
+  #                  segm AP   building  platform  aguada
+  #     2000 iters     38.13      39.92     51.33   23.15
+  #     3000 iters     40.33      37.47     49.38   34.15
+  #
+  # The short schedule is BETTER on both common classes and 9.4 AP worse on
+  # aguada. The rare class sets the schedule, which is also why it is not
+  # dropped: at 76 instances it is underpowered per fold, not unlearnable.
+  MAX_ITER: 3000
+  STEPS: (2800,)
 
   # Only model_final is wanted. 21 runs times mid-run checkpoints would cost
   # tens of GB for artefacts nothing reads.

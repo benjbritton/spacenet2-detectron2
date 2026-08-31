@@ -91,6 +91,14 @@ def parse_args():
     p.add_argument("--fold", type=int, default=0)
     p.add_argument("--seed", type=int, default=None)
     p.add_argument("--iters", type=int, default=None)
+    p.add_argument("--steps", default=None,
+                   help="comma-separated LR decay iterations, e.g. 1400,1800. "
+                        "Needed whenever --iters is lowered: the fallback below "
+                        "keeps only existing steps that fit inside the new "
+                        "schedule, so shortening the run past every step would "
+                        "silently leave a constant LR and no decay at all -- and "
+                        "on this dataset the decay is where the entire gain "
+                        "comes from")
     p.add_argument("--eval-period", type=int, default=None)
     p.add_argument("--batch", type=int, default=None)
     p.add_argument("--lr", type=float, default=None)
@@ -129,6 +137,8 @@ def build_cfg(args):
     if args.iters is not None:
         cfg.SOLVER.MAX_ITER = args.iters
         cfg.SOLVER.STEPS = [s for s in cfg.SOLVER.STEPS if s < args.iters]
+    if args.steps is not None:
+        cfg.SOLVER.STEPS = tuple(int(s) for s in args.steps.split(",") if s)
     if args.eval_period is not None:
         cfg.TEST.EVAL_PERIOD = args.eval_period
     if args.batch is not None:
@@ -189,6 +199,7 @@ def main():
     print("fold / seed   :", args.fold, "/", cfg.SEED)
     print("iterations    :", cfg.SOLVER.MAX_ITER,
           "| batch", cfg.SOLVER.IMS_PER_BATCH, "| lr", cfg.SOLVER.BASE_LR)
+    print("lr decay at   :", tuple(cfg.SOLVER.STEPS) or "NEVER (constant LR)")
     print("pixel mean    :", cfg.MODEL.PIXEL_MEAN)
     print("pixel std     :", cfg.MODEL.PIXEL_STD)
     print("filter empty  :", cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS,
