@@ -30,6 +30,8 @@ declare -A OUTROOT=(
   [A]="outputs/chactun_A_maskrcnn_default_anchors"
   [B]="outputs/chactun_B_maskrcnn_shifted_anchors"
   [C]="outputs/chactun_C_cascade_shifted_anchors"
+  [D]="outputs/chactun_D_maskrcnn_d4_augmentation"
+  [E]="outputs/chactun_E_maskrcnn_repeat_sampler"
 )
 
 # (arm fold seed) triples, fold spread first so the primary result lands early

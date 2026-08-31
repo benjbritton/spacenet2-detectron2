@@ -1,0 +1,33 @@
+# ARM E -- arm A plus repeat-factor oversampling of rare-class tiles.
+#
+# One delta from arm A: DATALOADER.SAMPLER_TRAIN. Attacks the same aguada
+# problem as arm D by a different mechanism, which is why they are separate
+# arms rather than one combined change. D increases the ORIENTATION coverage of
+# the examples that exist; E increases how often those examples are drawn.
+#
+# RepeatFactorTrainingSampler repeats an image by max(1, sqrt(t / f_c)) over the
+# categories it contains, where f_c is the fraction of images containing class
+# c. Measured on fold 0 train: building 0.663, platform 0.553, aguada 0.036.
+#
+# REPEAT_THRESHOLD is 0.5 deliberately. It is the largest value that leaves the
+# common classes untouched -- platform sits at 0.553, so anything below that
+# gives building and platform a repeat factor of exactly 1 -- while giving
+# aguada tiles sqrt(0.5 / 0.036) = 3.7x. Pushing the threshold past 0.553 would
+# start oversampling platform too and stop being a rare-class intervention.
+#
+# Note what this does NOT fix: there are still only 60 distinct aguadas. Drawing
+# them more often raises exposure, not diversity, and carries a real risk of
+# overfitting them. That is precisely why aguada is scored across all five
+# folds, where all 76 instances are evaluated exactly once.
+
+_BASE_: "chactun_base.yaml"
+
+MODEL:
+  ANCHOR_GENERATOR:
+    SIZES: [[32], [64], [128], [256], [512]]
+
+DATALOADER:
+  SAMPLER_TRAIN: "RepeatFactorTrainingSampler"
+  REPEAT_THRESHOLD: 0.5
+
+OUTPUT_DIR: "outputs/chactun_E_maskrcnn_repeat_sampler"

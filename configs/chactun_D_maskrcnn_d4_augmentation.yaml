@@ -1,0 +1,33 @@
+# ARM D -- arm A plus the full D4 augmentation group.
+#
+# One delta from arm A: the augmentation list. Anchors stay at the detectron2
+# default, because A vs B found no measurable benefit from shifting them, so
+# building on A keeps this a single-variable comparison against a baseline whose
+# five folds are already measured.
+#
+# Stock training augmentation for these configs is ResizeShortestEdge plus a
+# HORIZONTAL flip only -- no vertical flip and no rotation. This arm adds a
+# vertical flip and a uniform 90-degree rotation, which together generate all
+# eight symmetries of the square.
+#
+# The target is aguada. It has 60 training instances spread over 60 images, one
+# apiece, present in just 3.6% of tiles against 66.3% for building and 55.3% for
+# platform -- the model spends 96% of training never seeing the class. D4 cannot
+# manufacture new aguadas, but it can stop the model having to learn each
+# orientation separately from a handful of examples.
+#
+# Validity rests on the bands being isotropic; see the note in
+# detlab/datasets/chactun.py. If any band were directional -- a hillshade -- the
+# transform would be invalid and a null here would be uninterpretable. The
+# transforms themselves are verified label-preserving by scripts/verify_d4.py.
+#
+# The rotation is exact. Tiles are square, so np.rot90 resamples nothing;
+# detectron2's RandomRotation would bilinearly blur 25 px buildings for nothing.
+
+_BASE_: "chactun_base.yaml"
+
+MODEL:
+  ANCHOR_GENERATOR:
+    SIZES: [[32], [64], [128], [256], [512]]
+
+OUTPUT_DIR: "outputs/chactun_D_maskrcnn_d4_augmentation"

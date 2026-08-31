@@ -67,19 +67,34 @@ ARMS = {
           "chactun_B_maskrcnn_shifted_anchors.yaml"),
     "C": ("Misc/cascade_mask_rcnn_R_50_FPN_3x.yaml",
           "chactun_C_cascade_shifted_anchors.yaml"),
+    "D": ("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml",
+          "chactun_D_maskrcnn_d4_augmentation.yaml"),
+    "E": ("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml",
+          "chactun_E_maskrcnn_repeat_sampler.yaml"),
 }
+
+# Arms whose delta is the augmentation list rather than a config field. The
+# loaders are built by classmethods with no route for passing an instance
+# through, so this is carried on the class exactly as SpaceNetTrainer carries
+# its stretch.
+D4_ARMS = {"D"}
 
 
 class ChactunTrainer(LabTrainer):
     """LabTrainer with the 3-band GeoTIFF load path wired into both loaders."""
 
+    d4 = False
+
     @classmethod
     def build_train_loader(cls, cfg):
         return build_detection_train_loader(
-            cfg, mapper=chactun.ChactunMapper(cfg, is_train=True))
+            cfg, mapper=chactun.ChactunMapper(cfg, is_train=True, d4=cls.d4))
 
     @classmethod
     def build_test_loader(cls, cfg, dataset_name):
+        # Evaluation is never augmented: test-time D4 would be a different
+        # intervention (TTA) and would confound the training-time comparison
+        # this arm exists to make.
         return build_detection_test_loader(
             cfg, dataset_name, mapper=chactun.ChactunMapper(cfg, is_train=False))
 
@@ -191,8 +206,16 @@ def main():
     # Explicit. cfg.SEED is read by default_setup() only, which is not called.
     seed_all_rng(None if cfg.SEED < 0 else cfg.SEED)
 
+    ChactunTrainer.d4 = args.arm in D4_ARMS
+
     base, repo_cfg = ARMS[args.arm]
     print("arm           :", args.arm, "|", repo_cfg)
+    print("augmentation  :", "D4 (flips + rot90)" if ChactunTrainer.d4
+          else "stock (resize + hflip)")
+    print("train sampler :", cfg.DATALOADER.SAMPLER_TRAIN,
+          "| repeat threshold", cfg.DATALOADER.REPEAT_THRESHOLD
+          if cfg.DATALOADER.SAMPLER_TRAIN == "RepeatFactorTrainingSampler"
+          else "-")
     print("zoo base      :", base)
     print("roi heads     :", cfg.MODEL.ROI_HEADS.NAME)
     print("anchors       :", cfg.MODEL.ANCHOR_GENERATOR.SIZES)
@@ -221,6 +244,9 @@ def main():
                 "dataset": "Chactun (Somrak et al. 2023)",
                 "roi_heads": cfg.MODEL.ROI_HEADS.NAME,
                 "anchor_sizes": str(cfg.MODEL.ANCHOR_GENERATOR.SIZES),
+                "d4_augmentation": ChactunTrainer.d4,
+                "sampler_train": cfg.DATALOADER.SAMPLER_TRAIN,
+                "repeat_threshold": cfg.DATALOADER.REPEAT_THRESHOLD,
                 "fold": args.fold,
                 "n_folds": 5,
                 "seed": cfg.SEED,

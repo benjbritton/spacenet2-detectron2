@@ -32,6 +32,9 @@ import os
 
 import numpy as np
 import torch
+from fvcore.transforms.transform import NoOpTransform, Transform
+
+from detectron2.data.transforms import Augmentation
 
 CLASSES = ["building", "platform", "aguada"]
 
@@ -80,6 +83,94 @@ def register_fold(root="data/chactun", coco_dir=None, fold=0, prefix="chactun",
     return registered
 
 
+
+# ---------------------------------------------------------------------------
+# D4 augmentation: the eight symmetries of the square.
+#
+# WHY IT IS LEGITIMATE HERE, AND WHEN IT WOULD NOT BE
+# ---------------------------------------------------
+# Rotating a HILLSHADE is wrong: a fixed illumination azimuth is baked into the
+# pixel values, so the rotated image depicts terrain lit from an angle it never
+# was. Sky-view factor, positive openness and slope are all computed
+# isotropically -- over the full hemisphere, or as a gradient magnitude -- which
+# is exactly why archaeological prospection prefers them to hillshade, and which
+# is what makes rotation label-preserving here.
+#
+# NOTE the dependency: the band descriptions are absent from the rasters
+# themselves (all None, no tags), so that identification comes from the dataset
+# publication rather than from the files. If one band were in fact directional,
+# these transforms would be invalid and a null result from the arm would be
+# ambiguous between a bad prior and an invalid transform.
+#
+# D4 rather than arbitrary rotation is deliberate. Maya architecture is
+# frequently aligned to the cardinal directions, and flips plus 90-degree
+# multiples map cardinal directions onto cardinal directions, preserving that
+# real prior. Arbitrary-angle rotation would destroy it, and would resample.
+#
+# Tiles are square, so np.rot90 is EXACT. detectron2's RandomRotation goes
+# through an affine warp with bilinear interpolation, which would blur 25 px
+# buildings to no purpose.
+
+
+class Rot90Transform(Transform):
+    """Rotate by k * 90 degrees counter-clockwise, without resampling."""
+
+    def __init__(self, k, h, w):
+        super().__init__()
+        self._set_attributes(locals())
+
+    def apply_image(self, img, interp=None):
+        return np.ascontiguousarray(np.rot90(img, self.k))
+
+    def apply_coords(self, coords):
+        # np.rot90 CCW once maps input (x, y) to (y, W - 1 - x). Applying that
+        # map k times keeps image and annotations in agreement; getting this
+        # wrong detaches every polygon from its object silently, which is why
+        # scripts/verify_d4.py checks it against a rasterised mask.
+        coords = np.asarray(coords, dtype=float).reshape(-1, 2)
+        w = self.w
+        for _ in range(self.k % 4):
+            x, y = coords[:, 0].copy(), coords[:, 1].copy()
+            coords[:, 0] = y
+            coords[:, 1] = w - 1 - x
+        return coords
+
+    def apply_segmentation(self, segmentation):
+        return self.apply_image(segmentation)
+
+    def inverse(self):
+        return Rot90Transform((4 - self.k) % 4, self.w, self.h)
+
+
+class RandomRot90(Augmentation):
+    """Uniformly pick one of the four 90-degree rotations."""
+
+    def get_transform(self, image):
+        k = int(np.random.randint(4))
+        h, w = image.shape[:2]
+        if k == 0:
+            return NoOpTransform()
+        return Rot90Transform(k, h, w)
+
+
+def build_augmentations(cfg, is_train, d4=False):
+    """detectron2's stock list, optionally extended to the full D4 group.
+
+    Stock training augmentation for these configs is ResizeShortestEdge plus a
+    horizontal flip. Adding a vertical flip and a uniform 90-degree rotation
+    generates all eight symmetries of the square: the two flips at p=0.5 and
+    four rotations give sixteen combinations covering each of the eight group
+    elements exactly twice, so the result is uniform over D4.
+    """
+    from detectron2.data import detection_utils as utils
+    from detectron2.data import transforms as T
+
+    augs = utils.build_augmentation(cfg, is_train)
+    if is_train and d4:
+        augs.append(T.RandomFlip(prob=0.5, horizontal=False, vertical=True))
+        augs.append(RandomRot90())
+    return augs
+
 class ChactunMapper:
     """DatasetMapper equivalent that loads 3-band GeoTIFFs in stored band order.
 
@@ -88,14 +179,14 @@ class ChactunMapper:
     DatasetMapper performs that read inline in __call__ with no hook to override.
     """
 
-    def __init__(self, cfg, is_train):
+    def __init__(self, cfg, is_train, d4=False):
         from detectron2.data import detection_utils as utils
         from detectron2.data import transforms as T
 
         self._utils = utils
         self._T = T
         self.augmentations = T.AugmentationList(
-            utils.build_augmentation(cfg, is_train))
+            build_augmentations(cfg, is_train, d4))
         self.mask_format = cfg.INPUT.MASK_FORMAT
         self.is_train = is_train
 
