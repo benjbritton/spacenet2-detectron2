@@ -9,12 +9,12 @@
 # Raising the input resolution is a different mechanism, not a restatement of
 # the same one. It does two things where anchor shifting did one:
 #
-#   1. It moves objects up the anchor ladder, as arm B did in reverse. At the
-#      800 px input of arms A-C, 31.8% of buildings fall below the smallest
-#      32 px anchor; at 960 that drops to roughly 20%.
-#   2. It gives P2 genuinely finer features. At stride 4, a 25 px building
-#      covers about 6 feature cells at native scale and about 12 at 2x. Anchor
-#      shifting cannot do this -- it re-labels the same features.
+# 1. It moves objects up the anchor ladder, as arm B did in reverse. At the
+# 800 px input of arms A-C, 31.8% of buildings fall below the smallest
+# 32 px anchor; at 960 that drops to roughly 20%.
+# 2. It gives P2 genuinely finer features. At stride 4, a 25 px building
+# covers about 6 feature cells at native scale and about 12 at 2x. Anchor
+# shifting cannot do this -- it re-labels the same features.
 #
 # Mechanism 1 is already falsified by arm B. If arm F moves the numbers, the
 # cause is mechanism 2, and the conclusion is that feature resolution binds
@@ -33,20 +33,56 @@
 #
 # COST: 960/800 is 1.2x linear and 1.44x the pixels, so roughly 68 minutes per
 # run against 47. That is the price of the one mechanism arms A-C left untested.
+#
+# PREDICTIONS, RECORDED BEFORE THE RESULTS LANDED
+# -----------------------------------------------
+# Two, deliberately different, so the arm discriminates between them.
+#
+# First: +1.5 to +3.0 AP over baseline. Reasoning: expanding the small house
+# mounds gives P2 enough spatial resolution to trigger RPN candidates that the
+# baseline misses.
+#
+# Second: +0 to +1.5, most likely +0.5 to +1.0. Reasoning: the anchor-coverage
+# half of that mechanism is already falsified by arm B, and the marginal
+# feature gain here is smaller than it first appears -- see the arithmetic
+# below. Every arm in the completed A/B/C matrix sat within +-1 AP of every
+# other.
+#
+# THE ARITHMETIC THAT SEPARATES THEM. It is tempting to describe this as
+# turning 6x6 mounds into 12x12, but the baseline is not native. Arms A-C
+# already resize the short edge to 800 against native 480, a 1.667x upscale
+# inherited from the stock detectron2 recipe rather than chosen. So the median
+# 25 px building is ALREADY 41.6 px, about 10.4 cells at P2 stride 4. Arm F
+# takes it to 50 px, about 12.5 cells. The step being bought is 10.4 -> 12.5,
+# a factor of 1.2, not 6 -> 12. The large jump already happened by default.
+#
+# A SHAPE PREDICTION, which is sharper than either magnitude. If resolution is
+# the mechanism, the gain must concentrate in AP75 and APs rather than AP50.
+# Finding a mound is detection; delineating it at strict IoU is resolution, and
+# the ROI-aligned mask head benefits directly from more feature cells per
+# object. The current gap is AP50 62.05 against AP75 40.32, which is where
+# resolution should bite. A gain appearing in AP50 INSTEAD would contradict the
+# stated mechanism even if it confirmed the number, and should be reported as
+# such rather than counted as a win.
+#
+# RESOLVABLE? +3.0 would be unambiguous. +1.5 sits at the detection edge: paired
+# over five folds with a difference sd near 1.1, significance needs about 1.4.
+# Below +1.0 the design cannot separate either prediction from noise, and the
+# honest report is that the effect is smaller than the measurement, not absent.
 
 _BASE_: "chactun_base.yaml"
 
 MODEL:
-  ANCHOR_GENERATOR:
-    SIZES: [[32], [64], [128], [256], [512]]
+ ANCHOR_GENERATOR:
+ SIZES: [[32], [64], [128], [256], [512]]
 
 INPUT:
-  # Jitter range scaled to end at 960, mirroring the stock recipe's structure
-  # (a range for training, a single size for test) so the only thing that
-  # differs from arm A is the scale itself.
-  MIN_SIZE_TRAIN: (768, 832, 896, 960)
-  MIN_SIZE_TEST: 960
-  MAX_SIZE_TRAIN: 1600
-  MAX_SIZE_TEST: 1600
+ # Jitter range scaled to end at 960, mirroring the stock recipe's structure
+ # (a range for training, a single size for test) so the only thing that
+ # differs from arm A is the scale itself.
+ MIN_SIZE_TRAIN: (768, 832, 896, 960)
+ MIN_SIZE_TEST: 960
+ MAX_SIZE_TRAIN: 1600
+ MAX_SIZE_TEST: 1600
 
 OUTPUT_DIR: "outputs/chactun_F_maskrcnn_hires960"
