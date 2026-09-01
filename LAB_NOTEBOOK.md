@@ -1597,3 +1597,285 @@ The tell had already appeared and been misread: a `git pull` reporting "Already
 up to date" while the other session's commits were plainly present. Recorded
 because the failure mode is silent and the correct mental model -- two writers on
 one directory, not two repositories -- changes what instructions are safe to give.
+
+## 2026-09-01 - Milestone C: Chactun, and the first mechanism that worked
+
+Six arms over 36 training runs on ancient Maya structure detection. Five of the
+six changed nothing. The sixth, data augmentation, produced +4.16 AP -- roughly
+five times the size of every architectural difference in this milestone
+combined.
+
+### The dataset, and three ways to ruin it silently
+
+Chactun (Somrak et al., Scientific Data 2023, CC BY 4.0, figshare
+10.6084/m9.figshare.22202395): 2094 tiles of airborne laser scanning
+visualisations over central Yucatan, 480x480 at 0.5 m, three bands -- sky-view
+factor, positive openness, slope. Annotations are per-class SEMANTIC masks.
+
+**1. The masks are inverted.** Object pixels are 0, background 255. My first
+verification pass read `mask > 0` and produced one tile-sized "instance" per
+class per tile. Caught only because the output was absurd, not because anything
+raised an error. A model trained that way would have learned nothing and
+reported plausible-looking losses.
+
+**2. Semantic masks are not instance masks.** Adjacent structures fuse into one
+connected component. Converted, connected components give 7442 buildings against
+9303 published -- a 20% undercount, entirely from merging.
+
+`--split-touching` applies a distance-transform watershed to separate them. It
+does not work, and the sweep is recorded in the converter docstring so nobody
+repeats the afternoon. Same 500 tiles, buildings and median footprint:
+
+| mode | buildings | vs CC | median |
+|---|---|---|---|
+| connected components | 1679 | - | 157 m2 |
+| watershed d=8 | 2345 | x1.40 | 114 m2 |
+| watershed d=12 | 1242 | x0.74 | 193 m2 |
+| watershed d=16 | 1279 | x0.76 | 157 m2 |
+| watershed d=22 | 1586 | x0.94 | 156 m2 |
+| watershed d=30 | 1678 | x1.00 | 157 m2 |
+
+Recovering the merges needs about x1.25 WITH the median footprint intact. No
+setting does it: small radii over-split and halve the footprint, larger radii
+lose components to peak suppression and converge back to connected components.
+Connected components stands, and the 20% undercount is documented as a property
+of the data rather than hidden.
+
+**3. Tile boundaries cut structures.** 3429 of 9853 instances touch an edge.
+Platforms therefore OVERcount, 2335 against 2110, in the same conversion where
+buildings undercount -- opposite signs, different classes, because platforms are
+large enough to cross tiles while buildings are small enough to fuse. Edge
+instances are kept, and every annotation carries an `edge_touching` flag so a
+downstream evaluation can exclude them without reconverting.
+
+### No spatially blocked split is possible, and that is a finding
+
+Milestone B established blocked splits as the honest way to hold out data. That
+cannot be done here. The rasters carry no CRS and no affine transform --
+rasterio returns the identity matrix for every tile -- and the layout is not
+recoverable from the pixels either.
+
+**Numbering carries no layout.** Edge correlation across all 2093
+consecutive-id pairs is 0.291, against a random-pair baseline of 0.291. A sweep
+of every candidate row width from 2 to 259 is flat at ~0.283 with no spike.
+
+**No seams exist at all.** All-pairs search over 4.38 million ordered pairs,
+both axes: zero pairs are both reciprocal and z > 8. Best-match z tops out at
+6.2; reciprocal best matches occur for 4-6% of tiles, which is chance.
+
+**And that negative is not an artefact of contrast stretching**, which would
+hide a real seam. Only 34% of tiles are pinned to exactly 0-255 across all three
+bands and per-tile ranges vary with terrain (sd 17.7 / 34.9 / 45.8 by band), so
+a seam would have survived. The tiles genuinely are not neighbours -- consistent
+with georeferencing withheld deliberately, which is normal practice for
+unexcavated archaeological sites and is not an oversight to be worked around.
+
+The substitute blocks on APPEARANCE: cluster tiles, assign whole clusters to one
+side. It targets the same failure a spatial block targets -- near-duplicate
+content on both sides -- without claiming geography.
+
+**It barely works, measured rather than assumed.** Against a random control it
+moves cross-split similarity from mean 0.743 to 0.761 (the wrong way), p95 0.915
+to 0.907, max 0.978 to 0.954. Only the tail improves. Chactun tiles are
+homogeneous enough that every val tile has a near-twin in train under any
+partition, so the leak is a property of the dataset. **Val scores here are
+optimistic however the data is cut, and that belongs in the results.**
+
+### Five folds, not three seeds
+
+Cross-validation rather than one held-out split, for a reason specific to this
+data: aguada has 76 instances in the entire dataset, so a single split evaluates
+about 15 of them, which is not a measurement. Across five folds every instance
+is evaluated exactly once.
+
+Balance achieved: building 19.3-20.8% per fold, platform 19.9-20.2%, aguada
+19.7-21.1%. The rare class drove the search.
+
+**The choice was vindicated by the results.** Fold variance exceeds seed
+variance -- 2.45 against 1.39 sd on arm A segm AP, and 7.31 against 4.05 for
+aguada. Three seeds on a fixed split would have measured the smaller source of
+noise precisely and missed the larger one entirely.
+
+### Configuration, measured rather than inherited
+
+**Pixel statistics.** Band means over all 2094 tiles are 216.5 / 198.5 / 228.6
+against the COCO defaults of 103.5 / 116.3 / 123.7. Left unchanged the input
+would sit 4.2 to 5.0 standard deviations off centre with PIXEL_STD of 1.0
+applying no scaling at all.
+
+**Empty tiles.** 661 of 2094 tiles carry no annotation and detectron2 drops such
+images by default. FILTER_EMPTY_ANNOTATIONS is False; leaving it True would have
+discarded 31.6% of the data and every negative example with it.
+
+**Schedule, from two pilots rather than from epoch arithmetic.** A 4000-iteration
+run peaks at 2999, immediately after the first LR decay, and declines after. A
+2000-iteration run with an earlier decay was tried and rejected: it is BETTER on
+both common classes and 9.4 AP worse on aguada, because building and platform
+converge by iteration 999 while aguada is still climbing. The rare class sets the
+schedule. Settled at 3000 with a single decay at 2800.
+
+> This is also where aguada was nearly dropped. It reads 0.0 AP at 500
+> iterations, which is what a smoke run shows, and on that basis the class was
+> proposed for removal. At full schedule it reaches 32.6, and on the edge-free
+> ground truth 40.0, the best of the three classes. **A smoke run is not a
+> result, and a class that looks dead at 500 iterations may simply be slow.**
+
+### The A/B/C matrix: a null result
+
+21 runs, 18h07m, zero failures. Three arms differing by one thing each:
+
+| arm | segm AP | AP50 | AP75 | building | platform | aguada |
+|---|---|---|---|---|---|---|
+| A default anchors | 38.71 +/-2.45 | 62.05 | 40.32 | 39.36 | 48.69 | 28.08 |
+| B shifted anchors | 37.91 +/-2.67 | 61.01 | 38.90 | 39.04 | 48.31 | 26.37 |
+| C cascade head | 38.58 +/-2.71 | 60.66 | 41.12 | 39.81 | 48.78 | 27.16 |
+
+**A vs B falsifies the anchor hypothesis.** Paired by fold: -0.80 +/- 1.07,
+t = -1.68, below the seed noise floor, and every metric negative. That 31.8% of
+buildings fall below the smallest 32 px anchor at this input scale is not what
+limits them. Fifth predicted mechanism in this project to survive attribution
+analysis and then die under ablation.
+
+**B vs C confirms a predicted pattern at an irrelevant magnitude.** The
+prediction recorded in the arm C config before the run was AP50 within noise,
+AP75 favouring cascade, AP(0.5:0.95) favouring it partly spuriously. Observed:
+AP50 -0.36 (within noise), AP75 +2.23 (largest gain in the matrix), segm AP
++0.68 (below noise). The pattern held; nothing reached significance; cascade
+costs 27% more compute.
+
+**Power is bounded and the claim is bounded with it.** At n=5 with difference-sd
+near 1.1 this design detects about 1.8-2.0 AP. The supportable claim is that no
+effect larger than ~2 AP exists on the anchor/head axis, not that no effect
+exists.
+
+### The ceiling is real but is not the constraint
+
+Ground truth is raster-traced, so boundaries carry sub-pixel error. For area A
+and perimeter L, a d-pixel boundary shift gives IoU ~ A/(A + dL). Averaging
+achievable recall over the ten COCO thresholds bounds AP from above:
+
+| class | AP50 | AP75 | AP | ceiling d=1.0 | headroom |
+|---|---|---|---|---|---|
+| building | 70.24 | 41.38 | 39.36 | 69.14 | +29.78 |
+| platform | 63.09 | 54.82 | 48.69 | 82.43 | +33.74 |
+| aguada | 52.82 | 24.75 | 28.08 | 92.90 | +64.82 |
+
+I predicted this would show the metric saturated and architecture work pointless.
+**It showed the opposite.** Even at IoU 0.50, where only 2.3% of buildings are
+unmeasurable, the model reaches 70.24 against ~97.7 achievable. Quantisation
+explains roughly half the shortfall from perfect, not all of it.
+
+Two caveats, both making the headroom an overstatement: it assumes flawless
+precision, and it models only boundary error, not the 20% of buildings fused
+into merged components where one polygon covers two structures.
+
+At IoU 0.50 for buildings, 90.8% are unmeasurable at 0.90 -- so **the upper half
+of COCO AP is largely measuring raster quantisation for the dominant class.**
+AP50 and F1@0.5 are the defensible headline metrics here, and that is an
+evidence-backed choice rather than a convenience.
+
+### D and E: diversity works, exposure does not
+
+Two arms attacking the rare class by different mechanisms, each one delta from
+arm A.
+
+| | segm AP | AP50 | AP75 | building | platform | aguada |
+|---|---|---|---|---|---|---|
+| A control | 38.71 | 62.05 | 40.32 | 39.36 | 48.69 | 28.08 |
+| **D D4 augmentation** | **42.87** | **65.15** | **46.21** | **44.27** | **53.46** | 30.88 |
+| E repeat sampling | 38.65 | 61.06 | 40.07 | 39.88 | 49.14 | 26.93 |
+
+**A vs D, paired, all five folds positive:** segm AP **+4.16** (t = 7.94,
+p = 0.001), AP75 +5.89 (t = 11.55), building +4.91 (t = 18.45), platform +4.77.
+Pooled across folds, 42.45 against 37.96.
+
+**A vs E:** segm AP -0.06. Null. Aguada -1.16, i.e. the intervention aimed at
+the rare class made the rare class slightly worse.
+
+The contrast is cleaner than either arm alone. E draws the same 60 aguadas 3.7x
+more often -- exposure without diversity. D shows every tile in eight
+orientations -- diversity without extra exposure. **Only diversity helped.**
+
+**D4 is legitimate here for a reason specific to the bands.** Sky-view factor,
+positive openness and slope are computed isotropically. Rotating a hillshade
+would be invalid, since a fixed illumination azimuth is baked into the pixels.
+D4 rather than arbitrary rotation also preserves the cardinal alignment common
+in Maya architecture, and on square tiles np.rot90 is exact where an affine warp
+would blur 25 px buildings. The transforms are verified label-preserving: IoU
+1.0000 for all four rotations against a rasterised mask, inverses exact.
+
+> **Recorded dependency.** The bands are identified from the publication, not
+> from the files -- the rasters carry no band descriptions or tags. If one band
+> were directional, D4 would be invalid and a null from arm D would have been
+> ambiguous between a bad prior and a broken transform. It was not null, so the
+> question is moot for now, but the dependency stands.
+
+### Why D works, and why my first explanation was wrong
+
+I proposed regularisation: 1669 tiles is small, the baseline overfits, D4
+suppresses it. **The trajectories only partly support that.**
+
+| | mean peak | mean final | drop | building drop | peak position |
+|---|---|---|---|---|---|
+| A | 38.96 | 38.71 | 0.25 | 1.18 | 0.80 |
+| D | 42.91 | 42.87 | 0.04 | 0.00 | 0.96 |
+
+Arm A's building AP does decay 1.18 from peak and peaks at 80% of the schedule;
+arm D decays zero and peaks at 96%. Directionally right -- but suppressing a
+1.18 decay cannot explain a 4.91 gain. **Overfitting accounts for at most a
+quarter of it.**
+
+The trajectories show what actually happens:
+
+| iter | 999 | 1499 | 1999 | 2499 | 3000 |
+|---|---|---|---|---|---|
+| A | 34.79 | 36.80 | 37.15 | 36.22 | 38.71 |
+| D | 34.45 | 37.01 | 39.36 | 40.04 | 42.87 |
+
+Identical through ~1500, then A stops improving and D does not. That is not
+memorise-and-degrade. The baseline EXHAUSTS what 1669 tiles can teach it, while
+D keeps finding new information because each epoch presents genuinely different
+views. Data diversity, not regularisation.
+
+**Consequence: arm D is probably undertrained.** Its peak sits at 0.96 of the
+schedule with zero decay -- still climbing when training stopped. The
+3000-iteration schedule was chosen from arm A's convergence curve, on a
+configuration that saturates by 1500. A configuration that keeps learning
+deserves a longer one. **The +4.16 is a floor, not the effect size.**
+
+### Limitations
+
+- Val scores are optimistic on this dataset under any partition; the leak is
+  intrinsic and measured, not assumed.
+- The building undercount means ground truth labels some adjacent pairs as one
+  object. Recall on dense clusters measures a labelling convention, not
+  detection skill.
+- n=5 resolves ~2 AP. Arms B, C and E are "no effect larger than 2 AP", not "no
+  effect".
+- D, E and F ran five folds without a seed sweep, judged against the noise floor
+  measured on A, B and C. Cheaper, and defensible because that floor is a
+  property of the training process, but it is an assumption.
+- Pooled figures concatenate predictions from five models with non-identical
+  score calibration. Standard for cross-validation, but not the score of one
+  deployable model.
+- Arm F (960 px input) was still running when this was written.
+
+### Files
+
+    src/detlab/datasets/masks_to_coco.py     semantic masks -> COCO instances
+    src/detlab/datasets/chactun.py           registration, mapper, D4 transforms
+    scripts/make_chactun_split.py            similarity-blocked folds
+    scripts/make_chactun_folds_coco.py       per-fold COCO, incl. edge-free
+    scripts/train_chactun.py                 arms A-F
+    scripts/run_chactun_matrix.sh            the run driver
+    scripts/chactun_layout.py                numbering carries no layout
+    scripts/chactun_seams.py                 all-pairs seam search
+    scripts/chactun_norm.py                  stretch did not hide the seams
+    scripts/chactun_scales.py                object size against anchors
+    scripts/chactun_pixel_stats.py           band statistics
+    scripts/chactun_iou_ceiling.py           what the labels can resolve
+    scripts/chactun_headroom.py              actual against ceiling
+    scripts/chactun_analyse.py               paired tests, pooled CV
+    scripts/chactun_overfit_check.py         trajectory shape
+    scripts/verify_d4.py                     rotations preserve labels
+    scripts/verify_sampler.py                repeat factors hit only aguada

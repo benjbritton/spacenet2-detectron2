@@ -32,6 +32,7 @@ import contextlib
 import io as _io
 import json
 import os
+import sys
 from collections import OrderedDict
 
 import numpy as np
@@ -42,11 +43,19 @@ from scipy import stats
 REPO = "/w/repos/benjbritton_FA26"
 FULL_GT = "/w/data/chactun/coco/chactun_cc.json"
 COCO_DIR = "/w/data/chactun/coco"
-ARMS = OrderedDict([
-    ("A", ("outputs/chactun_A_maskrcnn_default_anchors", "Mask R-CNN, default anchors")),
-    ("B", ("outputs/chactun_B_maskrcnn_shifted_anchors", "Mask R-CNN, shifted anchors")),
-    ("C", ("outputs/chactun_C_cascade_shifted_anchors", "Cascade, shifted anchors")),
+ALL_ARMS = OrderedDict([
+    ("A", ("outputs/chactun_A_maskrcnn_default_anchors", "default anchors (control)")),
+    ("B", ("outputs/chactun_B_maskrcnn_shifted_anchors", "shifted anchors")),
+    ("C", ("outputs/chactun_C_cascade_shifted_anchors", "cascade head")),
+    ("D", ("outputs/chactun_D_maskrcnn_d4_augmentation", "D4 augmentation")),
+    ("E", ("outputs/chactun_E_maskrcnn_repeat_sampler", "repeat sampling")),
+    ("F", ("outputs/chactun_F_maskrcnn_hires960", "960 px input")),
 ])
+
+# Arms selected on the command line, defaulting to whatever has finished. A
+# partially complete arm is reported with its fold count so a mean over three
+# folds is never mistaken for a mean over five.
+ARMS = ALL_ARMS
 KEYS = ["segm/AP", "segm/AP50", "segm/AP75",
         "segm/AP-building", "segm/AP-platform", "segm/AP-aguada"]
 SHORT = {"segm/AP": "segm AP", "segm/AP50": "AP50", "segm/AP75": "AP75",
@@ -56,7 +65,12 @@ SHORT = {"segm/AP": "segm AP", "segm/AP50": "AP50", "segm/AP75": "AP75",
 
 def final_metrics(d):
     p = os.path.join(REPO, d, "metrics.json")
-    rows = [json.loads(l) for l in open(p)]
+    if not os.path.isfile(p):
+        return None
+    try:
+        rows = [json.loads(l) for l in open(p)]
+    except Exception:
+        return None
     ev = [r for r in rows if "segm/AP" in r]
     return ev[-1] if ev else None
 
@@ -64,10 +78,12 @@ def final_metrics(d):
 def collect():
     folds, seeds = {}, {}
     for arm, (root, _) in ARMS.items():
-        folds[arm] = [final_metrics(os.path.join(root, "fold%d_seed0" % f))
-                      for f in range(5)]
-        seeds[arm] = [final_metrics(os.path.join(root, "fold0_seed%d" % s))
-                      for s in range(3)]
+        folds[arm] = {f: m for f in range(5)
+                      if (m := final_metrics(
+                          os.path.join(root, "fold%d_seed0" % f))) is not None}
+        seeds[arm] = [m for s in range(3)
+                      if (m := final_metrics(
+                          os.path.join(root, "fold0_seed%d" % s))) is not None]
     return folds, seeds
 
 
@@ -76,28 +92,40 @@ def table(title, data, label_fn):
     print("%-28s %9s %8s %8s %9s %9s %8s"
           % ("", "segm AP", "AP50", "AP75", "building", "platform", "aguada"))
     for lab, rows in data:
+        rows = list(rows.values()) if isinstance(rows, dict) else list(rows)
+        if not rows:
+            continue
         vals = [np.mean([r[k] for r in rows]) for k in KEYS]
-        sds = [np.std([r[k] for r in rows], ddof=1) for k in KEYS]
         print("%-28s %9.2f %8.2f %8.2f %9.2f %9.2f %8.2f"
-              % (lab, *vals))
-        print("%-28s %9s %8s %8s %9s %9s %8s"
-              % ("  sd", *["+/-%.2f" % s for s in sds]))
+              % ("%s  n=%d" % (lab, len(rows)), *vals))
+        if len(rows) > 1:
+            sds = [np.std([r[k] for r in rows], ddof=1) for k in KEYS]
+            print("%-28s %9s %8s %8s %9s %9s %8s"
+                  % ("  sd", *["+/-%.2f" % s for s in sds]))
     print()
 
 
 def paired(folds, seeds, a, b):
-    print("=== %s vs %s (paired by fold, n=5) ===" % (a, b))
+    # only folds BOTH arms have completed; pairing is the entire point, and a
+    # mean over different fold sets would silently compare different difficulty
+    common = sorted(set(folds[a]) & set(folds[b]))
+    if len(common) < 2:
+        print("=== %s vs %s: too few shared folds (%d) ===\n" % (a, b, len(common)))
+        return
+    print("=== %s vs %s (paired, folds %s, n=%d) ==="
+          % (a, b, ",".join(str(c) for c in common), len(common)))
     print("%-12s %10s %10s %10s %8s %8s %10s"
           % ("metric", "%s mean" % a, "%s mean" % b, "diff", "sd", "t",
              "seed noise"))
     for k in KEYS:
-        av = np.array([r[k] for r in folds[a]])
-        bv = np.array([r[k] for r in folds[b]])
+        av = np.array([folds[a][c][k] for c in common])
+        bv = np.array([folds[b][c][k] for c in common])
         d = bv - av
         t, p = stats.ttest_rel(bv, av)
         # noise floor: sd across the three fold-0 seeds, averaged over both arms
-        sn = np.mean([np.std([r[k] for r in seeds[a]], ddof=1),
-                      np.std([r[k] for r in seeds[b]], ddof=1)])
+        have = [np.std([r[k] for r in seeds[x]], ddof=1)
+                for x in (a, b) if len(seeds[x]) > 1]
+        sn = float(np.mean(have)) if have else float("nan")
         flag = ""
         if p < 0.05:
             flag = "  SIGNIFICANT p=%.3f" % p
@@ -110,12 +138,18 @@ def paired(folds, seeds, a, b):
 
 
 def pooled(arm):
-    """Concatenate the five folds' predictions and score against the full GT."""
+    """Concatenate the five folds' predictions and score against the full GT.
+
+    Returns None unless all five folds exist: pooling a subset would score a
+    fraction of the dataset while looking like a whole-dataset number.
+    """
     root = ARMS[arm][0]
     preds = []
     for f in range(5):
         p = os.path.join(REPO, root, "fold%d_seed0" % f, "inference",
                          "coco_instances_results.json")
+        if not os.path.isfile(p):
+            return None, 0
         preds.extend(json.load(open(p)))
     with contextlib.redirect_stdout(_io.StringIO()):
         gt = COCO(FULL_GT)
@@ -138,22 +172,34 @@ def pooled(arm):
 
 
 def main():
+    global ARMS
+    want = [a for a in sys.argv[1:] if a in ALL_ARMS]
+    if want:
+        ARMS = OrderedDict((a, ALL_ARMS[a]) for a in want)
     folds, seeds = collect()
+    ARMS = OrderedDict((a, v) for a, v in ARMS.items() if folds.get(a))
 
-    table("Fold spread, seed 0, n=5",
-          [(ARMS[a][1] + " (%s)" % a, folds[a]) for a in ARMS], None)
-    table("Seed spread, fold 0, n=3",
-          [(ARMS[a][1] + " (%s)" % a, seeds[a]) for a in ARMS], None)
+    table("Fold spread, seed 0",
+          [("%s  %s" % (a, ARMS[a][1]), folds[a]) for a in ARMS], None)
+    table("Seed spread, fold 0",
+          [("%s  %s" % (a, ARMS[a][1]), seeds[a]) for a in ARMS
+           if len(seeds[a]) > 1], None)
 
-    paired(folds, seeds, "A", "B")
-    paired(folds, seeds, "B", "C")
-    paired(folds, seeds, "A", "C")
+    # every arm against the control it was built as a delta from
+    for a in ARMS:
+        if a != "A" and "A" in ARMS:
+            paired(folds, seeds, "A", a)
+    if "B" in ARMS and "C" in ARMS:
+        paired(folds, seeds, "B", "C")
 
     print("=== pooled cross-validation: every instance scored exactly once ===")
     print("%-6s %10s %10s %10s %10s %10s"
           % ("arm", "preds", "ALL AP", "building", "platform", "aguada"))
     for a in ARMS:
         o, n = pooled(a)
+        if o is None:
+            print("%-6s %10s %10s" % (a, "-", "incomplete, not pooled"))
+            continue
         print("%-6s %10d %10.2f %10.2f %10.2f %10.2f"
               % (a, n, o["ALL"][0], o["building"][0], o["platform"][0],
                  o["aguada"][0]))
