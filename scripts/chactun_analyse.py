@@ -56,9 +56,13 @@ ALL_ARMS = OrderedDict([
 # partially complete arm is reported with its fold count so a mean over three
 # folds is never mistaken for a mean over five.
 ARMS = ALL_ARMS
-KEYS = ["segm/AP", "segm/AP50", "segm/AP75",
+# APs is included because arm F is adjudicated on SHAPE as well as magnitude:
+# a resolution effect must land in AP75 and APs rather than AP50, since finding
+# a mound is detection while delineating it at strict IoU is resolution.
+KEYS = ["segm/AP", "segm/AP50", "segm/AP75", "segm/APs",
         "segm/AP-building", "segm/AP-platform", "segm/AP-aguada"]
 SHORT = {"segm/AP": "segm AP", "segm/AP50": "AP50", "segm/AP75": "AP75",
+         "segm/APs": "APsmall",
          "segm/AP-building": "building", "segm/AP-platform": "platform",
          "segm/AP-aguada": "aguada"}
 
@@ -89,18 +93,19 @@ def collect():
 
 def table(title, data, label_fn):
     print("=== %s ===" % title)
-    print("%-28s %9s %8s %8s %9s %9s %8s"
-          % ("", "segm AP", "AP50", "AP75", "building", "platform", "aguada"))
+    print("%-28s %9s %8s %8s %8s %9s %9s %8s"
+          % ("", "segm AP", "AP50", "AP75", "APsml", "building", "platform",
+             "aguada"))
     for lab, rows in data:
         rows = list(rows.values()) if isinstance(rows, dict) else list(rows)
         if not rows:
             continue
         vals = [np.mean([r[k] for r in rows]) for k in KEYS]
-        print("%-28s %9.2f %8.2f %8.2f %9.2f %9.2f %8.2f"
+        print("%-28s %9.2f %8.2f %8.2f %8.2f %9.2f %9.2f %8.2f"
               % ("%s  n=%d" % (lab, len(rows)), *vals))
         if len(rows) > 1:
             sds = [np.std([r[k] for r in rows], ddof=1) for k in KEYS]
-            print("%-28s %9s %8s %8s %9s %9s %8s"
+            print("%-28s %9s %8s %8s %8s %9s %9s %8s"
                   % ("  sd", *["+/-%.2f" % s for s in sds]))
     print()
 

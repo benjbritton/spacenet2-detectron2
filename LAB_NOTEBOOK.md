@@ -14,14 +14,14 @@ and upstream does not support Windows. Route chosen: WSL2 + Docker.
 **Done.**
 
 1. **WSL2 + Ubuntu 24.04.4 LTS.** WSL 2.7.12 was already installed; no distro. User
-   `benja` (uid 1000), passwordless sudo - WSL is not a security boundary, since
-   `wsl -u root` already grants root from the Windows session with no auth.
+ `benja` (uid 1000), passwordless sudo - WSL is not a security boundary, since
+ `wsl -u root` already grants root from the Windows session with no auth.
 2. **Docker Engine 29.7.2** from Docker's official apt repo. Not Docker Desktop.
 3. **NVIDIA Container Toolkit 1.20.0.** No NVIDIA driver installed inside the
-   distro - the Windows driver passes through at `/usr/lib/wsl/lib`. Installing a
-   Linux driver would break that and would need redoing on every GPU change.
+ distro - the Windows driver passes through at `/usr/lib/wsl/lib`. Installing a
+ Linux driver would break that and would need redoing on every GPU change.
 4. **Verified GPU passthrough:** `docker run --gpus all nvidia/cuda:12.4.1-base
-   nvidia-smi` gives RTX 2080 Ti, 11264 MiB, driver 591.86.
+ nvidia-smi` gives RTX 2080 Ti, 11264 MiB, driver 591.86.
 
 **Problem: every `docker pull` failed.** Registry CDN resolves to both IPv4 and
 IPv6; WSL's default NAT network has no IPv6 route, and containerd kept selecting
@@ -114,12 +114,12 @@ evaluation every 250 iterations on the 13 held-out images.
 
 | iter | segm/AP | bbox/AP | segm/APs |
 |------|---------|---------|----------|
-| 249  | 11.93   | 7.81    | 0.32     |
-| 499  | 52.30   | 44.71   | 0.93     |
-| 749  | 73.81   | 66.86   | 1.33     |
-| 999  | 78.88   | 71.95   | 1.63     |
-| 1249 | **81.55** | 77.01 | 13.81    |
-| 1500 | 81.54   | 78.59   | 13.94    |
+| 249 | 11.93 | 7.81 | 0.32 |
+| 499 | 52.30 | 44.71 | 0.93 |
+| 749 | 73.81 | 66.86 | 1.33 |
+| 999 | 78.88 | 71.95 | 1.63 |
+| 1249 | **81.55** | 77.01 | 13.81 |
+| 1500 | 81.54 | 78.59 | 13.94 |
 
 Final: segm AP 81.54, bbox AP 78.59, cls_accuracy 0.967, false-negative 0.074.
 Peak VRAM 2.68 GiB of 11 GiB. Wall time roughly 6 minutes.
@@ -151,10 +151,10 @@ any small-target detection.
 
 ```
 outputs/balloon_r50fpn/
-  model_best.pth     iteration 1249, best segm/AP
-  model_final.pth    iteration 1500
-  metrics.json       full metric history
-  samples/           3 annotated validation images
+ model_best.pth iteration 1249, best segm/AP
+ model_final.pth iteration 1500
+ metrics.json full metric history
+ samples/ 3 annotated validation images
 ```
 
 ### Infrastructure fixed along the way
@@ -297,12 +297,12 @@ Instance-size census of the balloon annotations, by COCO thresholds
 (small < 32^2 = 1024 px, large > 96^2 = 9216 px):
 
 ```
-VAL   - 13 images,  50 instances
-   small  (< 1024 px):   3 ( 6.0%)     areas: 84, 166, 1021
-   medium (1024-9216):  17 (34.0%)
-   large  (> 9216 px):  30 (60.0%)
+VAL - 13 images, 50 instances
+ small (< 1024 px): 3 ( 6.0%) areas: 84, 166, 1021
+ medium (1024-9216): 17 (34.0%)
+ large (> 9216 px): 30 (60.0%)
 TRAIN - 61 images, 255 instances
-   small  (< 1024 px):  10 ( 3.9%)
+ small (< 1024 px): 10 ( 3.9%)
 ```
 
 `segm/APs` is average precision over **three** instances. Two are ~9x9 and ~13x13
@@ -320,11 +320,11 @@ failure will not recur, but the habit should.
 ### Artifacts
 
 ```
-outputs/balloon_seed0/  seed 0    segm AP 81.62   APs  7.05
-outputs/balloon_seed1/  seed 1    segm AP 81.27   APs  7.78
-outputs/balloon_seed2/  seed 2    segm AP 81.52   APs 10.36
-outputs/balloon_r50fpn_a5000/     segm AP 81.61   APs 26.19   (unseeded)
-outputs/balloon_r50fpn/           segm AP 81.54   APs 13.94   (unseeded, 2080 Ti)
+outputs/balloon_seed0/ seed 0 segm AP 81.62 APs 7.05
+outputs/balloon_seed1/ seed 1 segm AP 81.27 APs 7.78
+outputs/balloon_seed2/ seed 2 segm AP 81.52 APs 10.36
+outputs/balloon_r50fpn_a5000/ segm AP 81.61 APs 26.19 (unseeded)
+outputs/balloon_r50fpn/ segm AP 81.54 APs 13.94 (unseeded, 2080 Ti)
 ```
 
 W&B runs `balloon-a5000-seed0/1/2` and `balloon-a5000` in project
@@ -333,27 +333,27 @@ W&B runs `balloon-a5000-seed0/1/2` and `balloon-a5000` in project
 ### Housekeeping
 
 - W&B project renamed `fa26-independent-study` -> `benjbritton_FA26`, entity
-  unchanged, both existing runs carried across with their ids intact. The rename
-  returned a UI error page while succeeding server-side; the post-rename redirect
-  targets the old URL.
+ unchanged, both existing runs carried across with their ids intact. The rename
+ returned a UI error page while succeeding server-side; the post-rename redirect
+ targets the old URL.
 - The account has no personal entity and cannot get one by renaming: signup
-  provisioned an org and a team, `wandb.init(entity="benjbritton")` fails with
-  `CommError: entity benjbritton not found during upsertBucket` ("not found", not
-  "forbidden"), and the team cannot take the name `benjbritton` because the user
-  account holds it. Published URLs are `wandb.ai/benjbritton-geoai/...` unless
-  W&B support provisions one on request.
+ provisioned an org and a team, `wandb.init(entity="benjbritton")` fails with
+ `CommError: entity benjbritton not found during upsertBucket` ("not found", not
+ "forbidden"), and the team cannot take the name `benjbritton` because the user
+ account holds it. Published URLs are `wandb.ai/benjbritton-geoai/...` unless
+ W&B support provisions one on request.
 - Repo published (private) at `github.com/benjbritton/benjbritton_FA26`. All
-  commits were rewritten from the university address to the permanent personal
-  one before the first push, so they attribute to the GitHub account; git
-  identity is now set globally to match. One contact address is correct for this
-  work and every other address is not, so the superseded one is not spelled out
-  here -- what matters to the record is that the identity was unified, not what
-  it was unified away from.
+ commits were rewritten from the university address to the permanent personal
+ one before the first push, so they attribute to the GitHub account; git
+ identity is now set globally to match. One contact address is correct for this
+ work and every other address is not, so the superseded one is not spelled out
+ here -- what matters to the record is that the identity was unified, not what
+ it was unified away from.
 
-  > **Superseded 2026-08-28.** That repository was deleted and recreated, and
-  > the identity rewritten again. Current home:
-  > `github.com/benjbritton/spacenet2-detectron2`, public. See the identity
-  > entry below.
+ > **Superseded 2026-08-28.** That repository was deleted and recreated, and
+ > the identity rewritten again. Current home:
+ > `github.com/benjbritton/spacenet2-detectron2`, public. See the identity
+ > entry below.
 
 
 ## 2026-08-27 - SpaceNet 2 baseline (Milestone B)
@@ -364,10 +364,10 @@ W&B runs `balloon-a5000-seed0/1/2` and `balloon-a5000` in project
 Deliberately NOT downloaded:
 
 - `test_public/` -- imagery only, no `geojson_buildings` and no solutions csv.
-  The competition test labels were never released, so it cannot be scored
-  locally. 19 GiB for nothing.
+ The competition test labels were never released, so it cannot be scored
+ locally. 19 GiB for nothing.
 - `MS/ PAN/ PS-MS/` -- 8-band multispectral and panchromatic, which a 3-channel
-  detectron2 baseline cannot consume. Another 32 GiB.
+ detectron2 baseline cannot consume. Another 32 GiB.
 
 The bucket is requester-pays, so this billed to the AWS account: about 2.30 USD.
 Downloading everything would have been roughly 7.20 USD and 76 GiB for no gain.
@@ -423,17 +423,17 @@ December.
 it against real files found one crash and three gaps:
 
 - **Latent crash.** SpaceNet footprints carry a Z ordinate, so
-  `for x, y in part.exterior.coords` raised `ValueError` on the first real tile.
+ `for x, y in part.exterior.coords` raised `ValueError` on the first real tile.
 - **One-directional orphan reporting.** Only images-without-labels were reported,
-  but the case that occurs is the reverse: AOI_2_Vegas ships 3851 labels against
-  3850 images, and `img1000` was being dropped in silence.
+ but the case that occurs is the reverse: AOI_2_Vegas ships 3851 labels against
+ 3850 images, and `img1000` was being dropped in silence.
 - **Split polygons became separate buildings.** Clipping at the tile edge and
-  `make_valid` both split a polygon, and each piece was emitted as its own
-  annotation -- 1630 phantom instances across the four AOIs. Now grouped: one
-  footprint, one annotation, bbox spanning all pieces, area summed.
+ `make_valid` both split a polygon, and each piece was emitted as its own
+ annotation -- 1630 phantom instances across the four AOIs. Now grouped: one
+ footprint, one annotation, bbox spanning all pieces, area summed.
 - Overlay renders confirmed the geo-to-pixel transform, which counts cannot: a
-  wrong transform produces the right number of correctly-shaped polygons in the
-  wrong place.
+ wrong transform produces the right number of correctly-shaped polygons in the
+ wrong place.
 
 Result: 10592 images, 218681 instances, 2069 empty tiles kept, all EPSG:4326.
 Retention 99.48-99.83%, the remainder sub-pixel edge fragments.
@@ -490,13 +490,13 @@ being a configuration nobody has published.
 ### What the smoke run caught
 
 - `EvalHook.after_train()` evaluates unconditionally once training completes
-  (`hooks.py:74`), so the explicit `test()` call after `train()` ran all 2118 val
-  tiles a **second** time -- about 3 minutes per run, on every run.
+ (`hooks.py:74`), so the explicit `test()` call after `train()` ran all 2118 val
+ tiles a **second** time -- about 3 minutes per run, on every run.
 - `--no-eval` emptied `DATASETS.TEST` but did not stop the per-AOI block, so a
-  memory probe spent five minutes evaluating city subsets.
+ memory probe spent five minutes evaluating city subsets.
 - The peak-VRAM report was meaningless: `LabTrainer` attaches
-  `TorchMemoryStats(period=100)`, which calls `reset_peak_memory_stats()`, so
-  `max_memory_allocated()` only covers iterations since the last reset.
+ `TorchMemoryStats(period=100)`, which calls `reset_peak_memory_stats()`, so
+ `max_memory_allocated()` only covers iterations since the last reset.
 
 None of these would have failed loudly. All three were found by running 500
 iterations before committing to 105 minutes.
@@ -533,12 +533,12 @@ presented as a result -- so **the threshold is selected on other data.**
 Two sources were computed, because each has a different flaw:
 
 - **train** -- unbiased with respect to val, but the model has memorised those
-  tiles. Train F1 is 0.8154 against 0.7930 on val, so its predictions there
-  really are more confident, and the optimal threshold is offset from what suits
-  unseen ground. Selected 0.544.
+ tiles. Train F1 is 0.8154 against 0.7930 on val, so its predictions there
+ really are more confident, and the optimal threshold is offset from what suits
+ unseen ground. Selected 0.544.
 - **val half** -- split val by image id, select on half A, report on half B.
-  Unbiased AND distribution-matched, at the cost of halving the reporting set.
-  Needs no extra inference. Selected 0.539.
+ Unbiased AND distribution-matched, at the cost of halving the reporting set.
+ Needs no extra inference. Selected 0.539.
 
 **They agree.** On held-out val half B those thresholds give F1 0.7939 and 0.7941,
 two ten-thousandths apart. The memorisation bias is real in the threshold and does
@@ -674,12 +674,12 @@ comparison still to come: anything above about 0.003 in F1 will be real.
 that matters most:
 
 ```
-segm/APs   iter1000  iter2000  iter3000  iter4000  iter5000  iter6000
-seed 0        21.23     22.80     25.47     25.82     26.38     26.44
-seed 1        20.95     21.65     24.19     23.63     26.44     26.63
-seed 2        20.95     24.09     24.15     24.69     26.61     26.69
+segm/APs iter1000 iter2000 iter3000 iter4000 iter5000 iter6000
+seed 0 21.23 22.80 25.47 25.82 26.38 26.44
+seed 1 20.95 21.65 24.19 23.63 26.44 26.63
+seed 2 20.95 24.09 24.15 24.69 26.61 26.69
 
-gain across the LR decay at 4000:   +0.62     +3.00     +2.00
+gain across the LR decay at 4000: +0.62 +3.00 +2.00
 ```
 
 At iteration 4000 the three runs span 1.5 AP, and the gain attributable to the
@@ -695,16 +695,16 @@ before today was made from a single run.
 ### Artifacts
 
 ```
-outputs/spacenet2_r50fpn/          seed 0
-outputs/spacenet2_r50fpn_seed1/    seed 1
-outputs/spacenet2_r50fpn_seed2/    seed 2
-outputs/thresh_select/             train-split predictions, threshold selection
-  model_best.pth, model_final.pth
-  metrics.json
-  inference/instances_predictions.pth          pooled val predictions
-  inference/spacenet2_val_AOI_*/               per-AOI predictions
-configs/spacenet2_split.json                   split membership (authority)
-configs/spacenet2_stretch.json                 per-city percentile constants
+outputs/spacenet2_r50fpn/ seed 0
+outputs/spacenet2_r50fpn_seed1/ seed 1
+outputs/spacenet2_r50fpn_seed2/ seed 2
+outputs/thresh_select/ train-split predictions, threshold selection
+ model_best.pth, model_final.pth
+ metrics.json
+ inference/instances_predictions.pth pooled val predictions
+ inference/spacenet2_val_AOI_*/ per-AOI predictions
+configs/spacenet2_split.json split membership (authority)
+configs/spacenet2_stretch.json per-city percentile constants
 ```
 
 `scripts/score_f1.py` scores F1 from saved predictions, so a finished run can be
@@ -713,18 +713,18 @@ re-scored without another inference pass.
 ### Open
 
 - ~~Threshold selection~~ -- done, selected on train at 0.544, cross-checked
-  against a val-half selection that agreed to 0.005.
+ against a val-half selection that agreed to 0.005.
 - ~~Seed variance~~ -- done, three seeds. segm AP 49.504 +/- 0.088.
 - **`per_city` stretch comparison**, paired by seed against `per_image`. Now
-  interpretable: the resolution is about 0.003 F1.
+ interpretable: the resolution is about 0.003 F1.
 - ~~Spatially blocked split~~ -- done, see the 2026-08-28 entry. Pooled
-  inflation is about 0.5%. Per-city is unresolved and needs replicates.
+ inflation is about 0.5%. Per-city is unresolved and needs replicates.
 - ~~**Khartoum at 0.627 against Vegas 0.895**~~ -- partly answered, see the
-  second 2026-08-28 entry. Not composition (size explains 18%), not albedo
-  (Khartoum leads on it), not crowding. Tracks boundary contrast and absence of
-  cast shadow. The failure is recall, not precision.
+ second 2026-08-28 entry. Not composition (size explains 18%), not albedo
+ (Khartoum leads on it), not crowding. Tracks boundary contrast and absence of
+ cast shadow. The failure is recall, not precision.
 - **Milestone B remainder:** public repo and first blog post. The modelling is
-  done.
+ done.
 
 
 ## 2026-08-28 - Spatially blocked split: the caveat, quantified
@@ -877,10 +877,10 @@ and conflating the two is how a rendering choice quietly becomes a claim.
 ### Two hypotheses from looking at Khartoum
 
 1. **Albedo.** Khartoum roofs and bare ground look alike, so perhaps there is
-   little radiometric signal marking a building at all.
+ little radiometric signal marking a building at all.
 2. **Relief.** Khartoum roofs are flat. A pitched roof gives two faces at
-   different brightness plus a cast shadow, boundary cues that survive even where
-   albedo does not.
+ different brightness plus a cast shadow, boundary cues that survive even where
+ albedo does not.
 
 Both predict low recall specifically, which is consistent with Khartoum's
 reported precision 0.676 against recall 0.583.
@@ -908,15 +908,15 @@ are not a sampling artefact.
 
 - **cohen d** -- inside-footprint vs outside-footprint brightness in pooled sd.
 - **boundary** -- the same difference across a 2 px ring either side of the
-  footprint edge, normalised by tile sd. Pixels belonging to any *other*
-  building are excluded from the outside ring, or dense blocks measure roof
-  against roof.
+ footprint edge, normalised by tile sd. Pixels belonging to any *other*
+ building are excluded from the outside ring, or dense blocks measure roof
+ against roof.
 - **shadow** -- dark-pixel fraction (< mean - 1 sd) in a 2-6 px band outside
-  footprints, over the same fraction across all non-building pixels. Above 1
-  means darkness concentrates around buildings. A proxy, not a shadow detector:
-  it cannot distinguish a shadow from a dark courtyard.
+ footprints, over the same fraction across all non-building pixels. Above 1
+ means darkness concentrates around buildings. A proxy, not a shadow detector:
+ it cannot distinguish a shadow from a dark courtyard.
 - **abut** -- fraction of footprint area whose 1 px dilation lands on a
-  different footprint.
+ different footprint.
 
 **The albedo hypothesis is wrong, and instructively so.** Khartoum has the
 *highest* roof-vs-ground separation of the four, 1.575 pooled sd, 39% above
@@ -993,35 +993,35 @@ disagreement between runs.
 ### What this establishes
 
 - The Vegas-Khartoum gap is **not** composition (18%), **not** *global luminance*
-  contrast (Khartoum leads on it), and **not** crowding (absent everywhere).
-  "Albedo" was the word used here originally; it is imprecise now that chromatic
-  contrast has been measured separately and separately refuted. See the hue entry
-  below, which splits contrast into three readings and settles each.
+ contrast (Khartoum leads on it), and **not** crowding (absent everywhere).
+ "Albedo" was the word used here originally; it is imprecise now that chromatic
+ contrast has been measured separately and separately refuted. See the hue entry
+ below, which splits contrast into three readings and settles each.
 - The failure mode is **missing buildings, not inventing them**: recall is below
-  precision in all twelve city-bucket cells, most starkly Khartoum small,
-  precision 0.535 against recall 0.350. Under half the small Khartoum buildings
-  are found.
+ precision in all twelve city-bucket cells, most starkly Khartoum small,
+ precision 0.535 against recall 0.350. Under half the small Khartoum buildings
+ are found.
 - The two measurements that track difficulty are **boundary contrast** and
-  **shadow**. Both are flat-roof consequences: flat roofs on flat ground give a
-  soft edge and no cast shadow.
+ **shadow**. Both are flat-roof consequences: flat roofs on flat ground give a
+ soft edge and no cast shadow.
 
-  > **Corrected same day.** This bullet originally continued "...so the only
-  > remaining cue is a tonal difference the model cannot localise precisely
-  > enough to clear IoU 0.5." That mechanism is **refuted** -- see the Open list
-  > below and `scripts/iou_sweep.py`. At IoU 0.10 Khartoum still misses 32% of
-  > buildings, so they are not being found and lost on geometry; nothing is
-  > proposed on them at all. Boundary contrast and shadow remain real
-  > measurements that track difficulty. Neither has been shown to cause anything.
-  >
-  > Note what this leaves shadow as. The hue entry below ablated chroma and found
-  > a 42.7% attribution collapse to nothing. **Shadow has had no equivalent test**
-  > -- it is a correlate with an untested mechanism, exactly the position hue was
-  > in before the ablation, and it should be read that way rather than as the
-  > surviving explanation.
+ > **Corrected same day.** This bullet originally continued "...so the only
+ > remaining cue is a tonal difference the model cannot localise precisely
+ > enough to clear IoU 0.5." That mechanism is **refuted** -- see the Open list
+ > below and `scripts/iou_sweep.py`. At IoU 0.10 Khartoum still misses 32% of
+ > buildings, so they are not being found and lost on geometry; nothing is
+ > proposed on them at all. Boundary contrast and shadow remain real
+ > measurements that track difficulty. Neither has been shown to cause anything.
+ >
+ > Note what this leaves shadow as. The hue entry below ablated chroma and found
+ > a 42.7% attribution collapse to nothing. **Shadow has had no equivalent test**
+ > -- it is a correlate with an untested mechanism, exactly the position hue was
+ > in before the ablation, and it should be read that way rather than as the
+ > surviving explanation.
 - **Vegas medium is 0.980, effectively saturated.** Whatever headroom the
-  pipeline has left is in small objects generally and Khartoum specifically, not
-  in the bulk of the easy city. That is worth knowing before choosing what to
-  improve next.
+ pipeline has left is in small objects generally and Khartoum specifically, not
+ in the bulk of the easy city. That is worth knowing before choosing what to
+ improve next.
 
 Honest limits: n=4 cities, so every rank correlation here is suggestive and
 nothing more. Size and relief are physically entangled -- small, single-storey,
@@ -1039,10 +1039,10 @@ scripts/export_predictions_geojson.py
 scripts/overlay_geotiff.py
 scripts/city_separability.py
 scripts/f1_by_size.py
-src/detlab/spacenet_f1.py           match_greedy_pairs added; match_greedy wraps it
+src/detlab/spacenet_f1.py match_greedy_pairs added; match_greedy wraps it
 
-outputs/vector_review/              8 GeoJSON: <aoi>_pred / <aoi>_gt, EPSG:4326
-outputs/overlay_geotiff/            16 GeoTIFF + 16 PNG, 4 tiles per city
+outputs/vector_review/ 8 GeoJSON: <aoi>_pred / <aoi>_gt, EPSG:4326
+outputs/overlay_geotiff/ 16 GeoTIFF + 16 PNG, 4 tiles per city
 outputs/city_analysis/separability.json
 outputs/city_analysis/f1_by_size.json
 ```
@@ -1056,19 +1056,19 @@ stops; `wsl -d Ubuntu-24.04 -- true` revives it.
 ### Open
 
 - ~~**Boundary-quality decomposition.**~~ Done, and it came out against the
-  expectation written here. Recall at IoU 0.5 conflates "not found" with "found
-  but outlined too loosely"; `scripts/iou_sweep.py` separates them. Khartoum
-  recovers 18.3% at IoU 0.25, *less* than Paris at 25.1%, and still misses 32% at
-  IoU 0.10. **Nothing is proposed on those buildings at all**, so the failure is
-  upstream of the mask head, not in it. This is what severs the boundary-contrast
-  measurement from the failure mode -- see the correction in "What this
-  establishes" above.
+ expectation written here. Recall at IoU 0.5 conflates "not found" with "found
+ but outlined too loosely"; `scripts/iou_sweep.py` separates them. Khartoum
+ recovers 18.3% at IoU 0.25, *less* than Paris at 25.1%, and still misses 32% at
+ IoU 0.10. **Nothing is proposed on those buildings at all**, so the failure is
+ upstream of the mask head, not in it. This is what severs the boundary-contrast
+ measurement from the failure mode -- see the correction in "What this
+ establishes" above.
 - **Per-city score thresholds.** 0.544 was selected once, pooled, on train and
-  applied to all four cities. No per-city optimum has been computed, so the
-  per-city table is at a threshold suboptimal for every city individually. The
-  saved per-AOI predictions make this a sweep, not a run.
+ applied to all four cities. No per-city optimum has been computed, so the
+ per-city table is at a threshold suboptimal for every city individually. The
+ saved per-AOI predictions make this a sweep, not a run.
 - Whether any of this is actionable. A finding that Khartoum lacks a cue is not
-  yet a change to the model.
+ yet a change to the model.
 
 
 ## 2026-08-28 - The published reference, located: it was never Solaris
@@ -1103,16 +1103,16 @@ for Milestone B: a *baseline* is what a baseline should be measured against.
 Three details from the paper settle things this project had to assume:
 
 1. **"Total Score" is the arithmetic mean of the per-city F1** -- an explicit
-   macro average. The 2026-08-27 entry argued from first principles that macro
-   (0.7459) rather than pooled micro (0.7935) is the comparable figure, because
-   Vegas is 51% of val instances. That argument is now citable rather than merely
-   defensible: micro was never what the competition reported.
+ macro average. The 2026-08-27 entry argued from first principles that macro
+ (0.7459) rather than pooled micro (0.7935) is the comparable figure, because
+ Vegas is 51% of val instances. That argument is now citable rather than merely
+ defensible: micro was never what the competition reported.
 2. **The metric is F1 at IoU >= 0.5 on polygons.** Confirms both the operating
-   point `src/detlab/spacenet_f1.py` implements and the raster-vs-polygon caveat
-   already recorded.
+ point `src/detlab/spacenet_f1.py` implements and the raster-vs-polygon caveat
+ already recorded.
 3. **Scores are on a withheld test set**, from a 60/20/20 train/test/validation
-   split. Confirms the largest outstanding caveat: our val is carved from
-   training data.
+ split. Confirms the largest outstanding caveat: our val is carved from
+ training data.
 
 ### Two headline numbers for one model, finally reconciled
 
@@ -1136,11 +1136,11 @@ Three differences, each accounting for part of the sixty points:
 
 1. **Scale.** COCO reports AP x100 by convention. 49.44 is 0.4944.
 2. **IoU strictness.** F1 is at IoU 0.5 only. AP averages ten thresholds up to
-   0.95, where scores approach zero. Put both on the same overlap requirement and
-   **AP50 0.8121 against F1 0.7930 -- about two points apart.**
+ 0.95, where scores approach zero. Put both on the same overlap requirement and
+ **AP50 0.8121 against F1 0.7930 -- about two points apart.**
 3. **Confidence handling**, which is the residual two points. F1 commits to one
-   score cutoff (0.544) and reports that operating point. AP integrates the whole
-   precision-recall curve, including the low-score tail where precision collapses.
+ score cutoff (0.544) and reports that operating point. AP integrates the whole
+ precision-recall curve, including the low-score tail where precision collapses.
 
 **So 49.44 is not a worse result than 0.793. It is the same result, averaged
 across nine additional and progressively brutal overlap requirements.**
@@ -1235,32 +1235,32 @@ just far smaller than the sentence implies.
 ### Open
 
 - The blog post now has a spine: a reproduction that lands near published
-  numbers, and a measured correction to the published explanation of why one
-  city is hard.
+ numbers, and a measured correction to the published explanation of why one
+ city is hard.
 - ~~Whether the boundary-contrast finding survives at IoU 0.25~~ -- run, and the
-  prediction made here was **wrong**. This entry predicted that if Khartoum
-  recall jumped sharply at a looser IoU, the soft-edge measurement would be tied
-  to the failure mode. `scripts/iou_sweep.py` says the opposite: Khartoum
-  recovers 18.3% at IoU 0.25, *less* than Paris at 25.1%, and at IoU 0.10 it
-  still misses 32% of buildings.
+ prediction made here was **wrong**. This entry predicted that if Khartoum
+ recall jumped sharply at a looser IoU, the soft-edge measurement would be tied
+ to the failure mode. `scripts/iou_sweep.py` says the opposite: Khartoum
+ recovers 18.3% at IoU 0.25, *less* than Paris at 25.1%, and at IoU 0.10 it
+ still misses 32% of buildings.
 
-  Loosening the geometric bar almost to nothing does not find them, so they were
-  never proposed. **The soft-edge finding survives as a measurement and loses its
-  causal link to the misses.** Boundary contrast is genuinely low in Khartoum
-  (0.315 against Vegas's 0.435) and that is genuinely not what is producing the
-  failure. The failure is upstream of localisation entirely -- backbone or RPN,
-  not the mask head -- and the entry above should be read with that correction:
-  it establishes what Khartoum's imagery lacks, not yet why the detector misses.
+ Loosening the geometric bar almost to nothing does not find them, so they were
+ never proposed. **The soft-edge finding survives as a measurement and loses its
+ causal link to the misses.** Boundary contrast is genuinely low in Khartoum
+ (0.315 against Vegas's 0.435) and that is genuinely not what is producing the
+ failure. The failure is upstream of localisation entirely -- backbone or RPN,
+ not the mask head -- and the entry above should be read with that correction:
+ it establishes what Khartoum's imagery lacks, not yet why the detector misses.
 
-  Worth keeping as a method note. The boundary measurement and the recall
-  failure were both real and both about Khartoum, which made the causal story
-  between them feel settled without being tested. It took a threshold sweep
-  costing no GPU to break the link. Three separate claims in this notebook have
-  now died the same way, and the pattern is always a plausible mechanism
-  connecting two true measurements.
+ Worth keeping as a method note. The boundary measurement and the recall
+ failure were both real and both about Khartoum, which made the causal story
+ between them feel settled without being tested. It took a threshold sweep
+ costing no GPU to break the link. Three separate claims in this notebook have
+ now died the same way, and the pattern is always a plausible mechanism
+ connecting two true measurements.
 
-  A fuller synthesis with the hue and grayscale results follows in the next
-  entry rather than being pre-empted here.
+ A fuller synthesis with the hue and grayscale results follows in the next
+ entry rather than being pre-empted here.
 
 
 ## 2026-08-28 - Hue: measured, apportioned 42.7% of the gap, and then ablated to nothing
@@ -1420,41 +1420,41 @@ unidentified.
 ### Consequences worth acting on
 
 - **A hue-weighted objective on SpaceNet 2 would be building on sand.** If the
-  network extracts nothing from chroma here, a loss that weights chromatic
-  agreement has nothing to weight. This dataset is the wrong testbed for that
-  method, and one 2-hour run establishing it beats a semester discovering it.
+ network extracts nothing from chroma here, a loss that weights chromatic
+ agreement has nothing to weight. This dataset is the wrong testbed for that
+ method, and one 2-hour run establishing it beats a semester discovering it.
 - **The asymmetry that makes chromatic detection work elsewhere is now explicit.**
-  A method gating on hue needs the target class to be *chromatically defined* -- a
-  known centroid to gate against. Buildings have none: Khartoum roofs sit at 81.6
-  degrees, Vegas at 109.7, Paris at 132.6. There is no building hue. Hue
-  separation from background is not the same property as chromatic definition, and
-  this run is the empirical demonstration that the first without the second buys
-  nothing.
+ A method gating on hue needs the target class to be *chromatically defined* -- a
+ known centroid to gate against. Buildings have none: Khartoum roofs sit at 81.6
+ degrees, Vegas at 109.7, Paris at 132.6. There is no building hue. Hue
+ separation from background is not the same property as chromatic definition, and
+ this run is the empirical demonstration that the first without the second buys
+ nothing.
 - **For the community, the useful finding is the negative one.** Colour is worth
-  0.4% on SN2 building detection. Anyone reaching for chromatic preprocessing,
-  false-colour composites or multispectral bands on this benchmark should know
-  the RGB chroma is already almost inert.
+ 0.4% on SN2 building detection. Anyone reaching for chromatic preprocessing,
+ false-colour composites or multispectral bands on this benchmark should know
+ the RGB chroma is already almost inert.
 
 ### Limits
 
 - One seed for the grayscale run. The colour baseline has three (sd 0.088 AP), and
-  the observed differences sit at or under that scale, so the *direction* of small
-  per-city deltas is not established -- only that nothing large happened.
+ the observed differences sit at or under that scale, so the *direction* of small
+ per-city deltas is not established -- only that nothing large happened.
 - Grayscale removes chroma; it does not test whether a *different* colour
-  representation would help. HSV as network input, rather than RGB, remains
-  untested and is a different question.
+ representation would help. HSV as network input, rather than RGB, remains
+ untested and is a different question.
 - The stretch amplifies hue before the network sees it, so the ablation removes
-  amplified chroma, which is the correct thing to remove but worth stating.
+ amplified chroma, which is the correct thing to remove but worth stating.
 
 ### Artifacts
 
 ```
-scripts/city_hue.py                 per-city circular hue statistics
-scripts/factor_attribution.py       tile-level weighted least squares
-scripts/iou_sweep.py                IoU rescore, detection vs geometry
+scripts/city_hue.py per-city circular hue statistics
+scripts/factor_attribution.py tile-level weighted least squares
+scripts/iou_sweep.py IoU rescore, detection vs geometry
 outputs/city_analysis/hue.json
 outputs/city_analysis/attribution.json
-outputs/spacenet2_r50fpn_gray/      grayscale ablation run
+outputs/spacenet2_r50fpn_gray/ grayscale ablation run
 ```
 
 W&B run `spacenet2-r50fpn-seed0-GRAYSCALE`.
@@ -1462,12 +1462,12 @@ W&B run `spacenet2-r50fpn-seed0-GRAYSCALE`.
 ### Open
 
 - **What is actually causing the 32% of Khartoum buildings nothing is proposed
-  on.** Contrast is ruled out on both axes, composition is 18%, crowding is
-  absent. The remaining candidates are texture, scale relative to the anchor set,
-  and annotation quality -- none measured.
+ on.** Contrast is ruled out on both axes, composition is 18%, crowding is
+ absent. The remaining candidates are texture, scale relative to the anchor set,
+ and annotation quality -- none measured.
 - **Anchor sizes.** Never examined. Khartoum median footprint is 1182 px against
-  Vegas 2327, and the FPN anchor set is the COCO default. A proposal stage that
-  cannot generate boxes at the right scale would produce exactly this failure.
+ Vegas 2327, and the FPN anchor set is the COCO default. A proposal stage that
+ cannot generate boxes at the right scale would produce exactly this failure.
 - **HSV as network input** rather than RGB, which grayscale does not address.
 
 
@@ -1846,36 +1846,121 @@ deserves a longer one. **The +4.16 is a floor, not the effect size.**
 ### Limitations
 
 - Val scores are optimistic on this dataset under any partition; the leak is
-  intrinsic and measured, not assumed.
+ intrinsic and measured, not assumed.
 - The building undercount means ground truth labels some adjacent pairs as one
-  object. Recall on dense clusters measures a labelling convention, not
-  detection skill.
+ object. Recall on dense clusters measures a labelling convention, not
+ detection skill.
 - n=5 resolves ~2 AP. Arms B, C and E are "no effect larger than 2 AP", not "no
-  effect".
+ effect".
 - D, E and F ran five folds without a seed sweep, judged against the noise floor
-  measured on A, B and C. Cheaper, and defensible because that floor is a
-  property of the training process, but it is an assumption.
+ measured on A, B and C. Cheaper, and defensible because that floor is a
+ property of the training process, but it is an assumption.
 - Pooled figures concatenate predictions from five models with non-identical
-  score calibration. Standard for cross-validation, but not the score of one
-  deployable model.
+ score calibration. Standard for cross-validation, but not the score of one
+ deployable model.
 - Arm F (960 px input) was still running when this was written.
 
 ### Files
 
-    src/detlab/datasets/masks_to_coco.py     semantic masks -> COCO instances
-    src/detlab/datasets/chactun.py           registration, mapper, D4 transforms
-    scripts/make_chactun_split.py            similarity-blocked folds
-    scripts/make_chactun_folds_coco.py       per-fold COCO, incl. edge-free
-    scripts/train_chactun.py                 arms A-F
-    scripts/run_chactun_matrix.sh            the run driver
-    scripts/chactun_layout.py                numbering carries no layout
-    scripts/chactun_seams.py                 all-pairs seam search
-    scripts/chactun_norm.py                  stretch did not hide the seams
-    scripts/chactun_scales.py                object size against anchors
-    scripts/chactun_pixel_stats.py           band statistics
-    scripts/chactun_iou_ceiling.py           what the labels can resolve
-    scripts/chactun_headroom.py              actual against ceiling
-    scripts/chactun_analyse.py               paired tests, pooled CV
-    scripts/chactun_overfit_check.py         trajectory shape
-    scripts/verify_d4.py                     rotations preserve labels
-    scripts/verify_sampler.py                repeat factors hit only aguada
+ src/detlab/datasets/masks_to_coco.py semantic masks -> COCO instances
+ src/detlab/datasets/chactun.py registration, mapper, D4 transforms
+ scripts/make_chactun_split.py similarity-blocked folds
+ scripts/make_chactun_folds_coco.py per-fold COCO, incl. edge-free
+ scripts/train_chactun.py arms A-F
+ scripts/run_chactun_matrix.sh the run driver
+ scripts/chactun_layout.py numbering carries no layout
+ scripts/chactun_seams.py all-pairs seam search
+ scripts/chactun_norm.py stretch did not hide the seams
+ scripts/chactun_scales.py object size against anchors
+ scripts/chactun_pixel_stats.py band statistics
+ scripts/chactun_iou_ceiling.py what the labels can resolve
+ scripts/chactun_headroom.py actual against ceiling
+ scripts/chactun_analyse.py paired tests, pooled CV
+ scripts/chactun_overfit_check.py trajectory shape
+ scripts/verify_d4.py rotations preserve labels
+ scripts/verify_sampler.py repeat factors hit only aguada
+
+### Arm F: resolution is not the constraint either, and the scale family is closed
+
+Two predictions were recorded in `configs/chactun_F_maskrcnn_hires960.yaml`
+before the arm ran. The optimistic estimate: +1.5 to +3.0 AP, on the grounds that expanding the
+small mounds gives P2 enough resolution to trigger RPN candidates the baseline
+misses. The conservative estimate: +0 to +1.5, most likely +0.5 to +1.0.
+
+Paired over five folds against arm A:
+
+| metric | A | F | diff | t |
+|---|---|---|---|---|
+| segm AP | 38.71 | 38.81 | +0.10 | 0.20 |
+| AP50 | 62.05 | 61.35 | -0.70 | -1.01 |
+| AP75 | 40.32 | 40.66 | +0.34 | 0.32 |
+| APsmall | 21.75 | 21.04 | **-0.71** | -1.21 |
+| building | 39.36 | 38.84 | **-0.52** | -1.05 |
+
+**+0.10 AP.** The first prediction is falsified. The second technically holds but
+its point estimate, +0.5 to +1.0, was also wrong; being closer is not the same as
+being right.
+
+**The shape prediction matters more than either magnitude.** Both predictions
+agreed that a resolution effect must appear in AP75 and APs rather than AP50,
+since finding a mound is detection while delineating it at strict IoU is
+resolution. Observed: APs -0.71 and building -0.52, both NEGATIVE. Doubling the
+input made small objects slightly worse. This is not a real effect too small to
+measure; the mechanism is refuted in direction.
+
+**The scale family is now closed.** There are two ways object scale could bind:
+the anchors that propose regions, and the features that characterise them. Arm B
+gave small objects anchors and produced nothing. Arm F gave them feature support
+and produced nothing. The small-object deficit -- APs 21.75 against APm near 48
+-- is not a scale problem, and no further reshaping of anchors or input size is
+worth running.
+
+**What the deficit does respond to is diversity.** Arm D improved APs by +2.95
+(p = 0.003). Same weakness, opposite lever: it moves with data variety and not
+with pixels.
+
+### Multiple comparisons
+
+This milestone reports roughly 42 tests -- six paired comparisons across seven
+metrics -- so about two hits at p < 0.05 are expected by chance alone. A
+Bonferroni threshold is about 0.0012.
+
+**Arm D survives it**: segm AP 0.001, AP75 < 0.001, building < 0.001, platform
+0.001, APs 0.003. Its AP50 at 0.011 does not survive strict correction, though
+the effect is consistent across all five folds.
+
+**The marginal findings do not survive and are withdrawn** as findings: A vs C
+on APsmall (p = 0.045) and A vs E on building (p = 0.028) should be read as
+noise, not as small real effects. They are recorded here so that a reader who
+notices them in the tables knows they were considered and discounted.
+
+### Final standing
+
+| arm | pooled AP | vs control | verdict |
+|---|---|---|---|
+| **D D4 augmentation** | **42.45** | **+4.49** | real, survives correction |
+| F 960 px input | 38.13 | +0.17 | null |
+| A control | 37.96 | - | - |
+| C cascade head | 37.84 | -0.12 | null |
+| E repeat sampling | 37.74 | -0.22 | null |
+| B shifted anchors | 37.16 | -0.80 | null |
+
+Six mechanisms, five of them null. The one that worked cost nothing -- a
+configuration change with no compute penalty -- while the four with the
+strongest prior arguments (anchor scale, cascade refinement, input resolution,
+rare-class oversampling) all failed. That is now the consistent pattern across
+two milestones: **on this data, model-side interventions do not move the
+numbers and data-side interventions do.**
+
+### What is still open
+
+- **Arm D is undertrained.** Its peak sits at 0.96 of a schedule chosen from the
+ baseline convergence curve, with zero decay from peak. +4.16 is a floor.
+- **The labels are the remaining suspect.** With scale ruled out, the untested
+ explanations for the small-object deficit are the 20% of buildings fused into
+ merged components and the 35% cut by tile boundaries. The `edge_touching` flag
+ and the edge-free ground truth already exist to test the second.
+- **Aguada remains unresolved.** No arm moved it significantly. D gave +2.79
+ against a seed-noise floor of 4.05. With 76 instances the class may simply not
+ be resolvable at this sample size, which is a finding about the dataset rather
+ than about any model.
