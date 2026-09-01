@@ -1964,3 +1964,100 @@ numbers and data-side interventions do.**
  against a seed-noise floor of 4.05. With 76 instances the class may simply not
  be resolvable at this sample size, which is a finding about the dataset rather
  than about any model.
+
+## 2026-09-01 - What this tool is for, and what that implies about measuring it
+
+Recorded because it is the design intent every arm in this milestone should be
+read against, and because it was not written down while the arms were being run.
+The framing is Benjamin's; the measurement consequences are worked out below it.
+
+### The target
+
+Not a model tuned to win on one curated benchmark. A **regionally focused,
+general detector for ancient Maya structures**, meant to be thrown at raw
+third-party LiDAR anywhere in the Maya region with no retuning, as a candidate
+generator whose output subject-area experts triage, inventory and analyse.
+
+Two words carry the specification.
+
+**Prolifically** -- scale and throughput. Fast enough to sweep hundreds or
+thousands of square kilometres without exhausting GPU memory or taking days per
+flight path. And deliberately generous rather than conservative: a net rather
+than a filter, flagging many candidate mounds, platforms and aguadas and
+accepting false positives in exchange for not missing real settlement clusters.
+
+**Promiscuously** -- domain robustness. Indifferent to who flew the survey, at
+what point density (1 pt/m2 against 30), with which sensor (G-LiHT, NCALM,
+Leica), and through which visualisation pipeline (hillshade, SVF, LRM). Tolerant
+of dirty real-world input: variable canopy, modern agricultural scarring,
+tile-edge artefacts, erratic resolution. Zero-shot on other people's data, with
+no local retraining or site-specific hyperparameter fitting.
+
+### What that changes about measurement
+
+**AP is the wrong headline metric for this tool.** COCO AP integrates over all
+score thresholds and rewards precision at high confidence. A candidate generator
+runs at a LOW threshold -- 0.1 or 0.2 -- where recall is the product and false
+positives are triaged downstream by an expert. The right reporting is recall at
+a stated operating point with false-positives-per-square-kilometre beside it.
+Every number in this milestone is AP, which measures something adjacent to, and
+not identical to, what the tool is for. This is cheap to recompute from
+predictions already on disk and has not yet been done.
+
+**In-domain val is a proxy that can mislead.** Every arm was trained and scored
+on Chactun: one acquisition, one processing pipeline, one 0.5 m grid. A model
+tuned hard to that is more brittle across sources, not less, so an arm that wins
+on Chactun val is not automatically the better regional tool.
+
+**Robustness axes that no arm has tested.** Resolution mismatch is being
+measured now (scripts/chactun_scale_sensitivity.py). Untested and untestable on
+this dataset because it is fixed: point density, sensor, visualisation pipeline,
+canopy regime. Those need the G-LiHT data and the ~2000 existing labels.
+
+### How the results so far read against this
+
+The arms are consistent with the philosophy, and one of them supports it
+directly.
+
+**D4 augmentation (+4.16 AP) is the right KIND of intervention for this tool**,
+not merely the largest. Rotation and reflection invariance means survey heading
+and tiling orientation stop mattering, which is a property that transfers to
+other people's data. It is a data-pipeline change, costs nothing at inference,
+and adds no configuration for a downstream user to get wrong.
+
+**Anchor tuning (B) and the cascade head (C) were rejected on evidence, and it
+is worth being precise about which evidence.** They produced no in-domain
+benefit -- B was -0.80 and C was -0.13, both below the seed noise floor -- so
+there is no reason to accept their added complexity. The stronger claim, that
+custom anchors and multi-stage heads would be BRITTLE on third-party LiDAR at
+different pixel scales, is a well-motivated prior and it is not something this
+milestone measured. Keeping those two statements separate matters: the first is
+a finding, the second is a hypothesis, and the scale-sensitivity run is the
+first evidence bearing on it.
+
+**A stock, standard backbone is the defensible default** for a tool meant to be
+run by other people, for reasons beyond accuracy: it is reproducible from a
+public config, it has no site-specific tuning to re-derive, and every failure
+mode is documented somewhere public. Six arms produced one improvement, and that
+improvement was to the data pipeline rather than the model.
+
+### The honest state of the multiclass claim
+
+The vision is a multiclass regional tool. What a Chactun-trained model delivers
+today, measured:
+
+ building 80.3% localised, 76.8% correctly labelled
+ platform 84.3% localised, 62.1% correctly labelled (22% called building)
+ aguada 50.0% localised, 50.0% correctly labelled
+
+So it is realistically a two-class tool with a substantial confusion between its
+two classes, plus a third class the input bands cannot express -- aguadas differ
+from unannotated terrain by about 2 counts where buildings differ by 45 to 60,
+because sky-view factor, positive openness and slope all emphasise RAISED
+features while an aguada is a depression. The diagnostic visualisation for
+concavity is negative openness, which this dataset does not ship.
+
+That is not a reason to abandon the multiclass goal. It is the specification of
+what remains: the sub-classifier's real job is the platform/building boundary,
+worth 518 recoverable instances, and aguada needs a band that represents
+depressions rather than more examples of an invisible object.
