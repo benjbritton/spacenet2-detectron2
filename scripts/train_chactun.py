@@ -71,6 +71,8 @@ ARMS = {
           "chactun_D_maskrcnn_d4_augmentation.yaml"),
     "E": ("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml",
           "chactun_E_maskrcnn_repeat_sampler.yaml"),
+    "F": ("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml",
+          "chactun_F_maskrcnn_hires960.yaml"),
 }
 
 # Arms whose delta is the augmentation list rather than a config field. The
@@ -223,6 +225,9 @@ def main():
     print("iterations    :", cfg.SOLVER.MAX_ITER,
           "| batch", cfg.SOLVER.IMS_PER_BATCH, "| lr", cfg.SOLVER.BASE_LR)
     print("lr decay at   :", tuple(cfg.SOLVER.STEPS) or "NEVER (constant LR)")
+    print("input train   :", cfg.INPUT.MIN_SIZE_TRAIN,
+          "| test", cfg.INPUT.MIN_SIZE_TEST,
+          "(native tiles are 480)")
     print("pixel mean    :", cfg.MODEL.PIXEL_MEAN)
     print("pixel std     :", cfg.MODEL.PIXEL_STD)
     print("filter empty  :", cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS,
@@ -244,6 +249,8 @@ def main():
                 "dataset": "Chactun (Somrak et al. 2023)",
                 "roi_heads": cfg.MODEL.ROI_HEADS.NAME,
                 "anchor_sizes": str(cfg.MODEL.ANCHOR_GENERATOR.SIZES),
+                "min_size_train": str(cfg.INPUT.MIN_SIZE_TRAIN),
+                "min_size_test": cfg.INPUT.MIN_SIZE_TEST,
                 "d4_augmentation": ChactunTrainer.d4,
                 "sampler_train": cfg.DATALOADER.SAMPLER_TRAIN,
                 "repeat_threshold": cfg.DATALOADER.REPEAT_THRESHOLD,

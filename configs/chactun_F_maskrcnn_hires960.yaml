@@ -1,0 +1,52 @@
+# ARM F -- arm A at higher input resolution. Anchors stay at the default.
+#
+# WHY THIS IS NOT A REPEAT OF ARM B
+# ---------------------------------
+# Arm B moved the anchors down to meet the objects and produced nothing:
+# -0.80 +- 1.07 AP against arm A, below the seed noise floor, with every metric
+# negative. That falsified anchor PLACEMENT as the limiting factor.
+#
+# Raising the input resolution is a different mechanism, not a restatement of
+# the same one. It does two things where anchor shifting did one:
+#
+#   1. It moves objects up the anchor ladder, as arm B did in reverse. At the
+#      800 px input of arms A-C, 31.8% of buildings fall below the smallest
+#      32 px anchor; at 960 that drops to roughly 20%.
+#   2. It gives P2 genuinely finer features. At stride 4, a 25 px building
+#      covers about 6 feature cells at native scale and about 12 at 2x. Anchor
+#      shifting cannot do this -- it re-labels the same features.
+#
+# Mechanism 1 is already falsified by arm B. If arm F moves the numbers, the
+# cause is mechanism 2, and the conclusion is that feature resolution binds
+# where anchor scale does not. If arm F is also null, then the small-object
+# weakness is not a scale problem at all and the remaining suspects are the
+# labels: 20% of buildings fused into merged components, 35% cut by tile edges.
+#
+# WHY 960 AND NOT 1024
+# --------------------
+# 960 is exactly 2x the native 480, so the upscale is a clean integer factor
+# rather than an arbitrary resample that invents intermediate pixels. The data
+# is 0.5 m and contains no detail beyond it; the point is to give the network
+# more feature cells per object, not to pretend there is more information. A
+# clean 2x makes that honest and keeps the interpolation from becoming a
+# confound of its own.
+#
+# COST: 960/800 is 1.2x linear and 1.44x the pixels, so roughly 68 minutes per
+# run against 47. That is the price of the one mechanism arms A-C left untested.
+
+_BASE_: "chactun_base.yaml"
+
+MODEL:
+  ANCHOR_GENERATOR:
+    SIZES: [[32], [64], [128], [256], [512]]
+
+INPUT:
+  # Jitter range scaled to end at 960, mirroring the stock recipe's structure
+  # (a range for training, a single size for test) so the only thing that
+  # differs from arm A is the scale itself.
+  MIN_SIZE_TRAIN: (768, 832, 896, 960)
+  MIN_SIZE_TEST: 960
+  MAX_SIZE_TRAIN: 1600
+  MAX_SIZE_TEST: 1600
+
+OUTPUT_DIR: "outputs/chactun_F_maskrcnn_hires960"

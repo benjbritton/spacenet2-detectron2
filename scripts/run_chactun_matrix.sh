@@ -21,7 +21,23 @@ set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO"
 
-ARMS=("$@")
+# --folds-only runs the five folds without the fold-0 seed sweep. The seed
+# noise floor was already measured on arms A, B and C (0.80 to 1.39 sd on segm
+# AP), and re-measuring it for every later arm costs two runs each to re-derive
+# a number that is a property of the training process rather than of the arm.
+# Differences are judged against the existing floor; if an arm looks promising,
+# its seeds can be run afterwards.
+FOLDS_ONLY=0
+ARGS=()
+for a in "$@"; do
+  if [ "$a" = "--folds-only" ]; then
+    FOLDS_ONLY=1
+  else
+    ARGS+=("$a")
+  fi
+done
+
+ARMS=("${ARGS[@]+"${ARGS[@]}"}")
 if [ ${#ARMS[@]} -eq 0 ]; then
   ARMS=(A B C)
 fi
@@ -32,6 +48,7 @@ declare -A OUTROOT=(
   [C]="outputs/chactun_C_cascade_shifted_anchors"
   [D]="outputs/chactun_D_maskrcnn_d4_augmentation"
   [E]="outputs/chactun_E_maskrcnn_repeat_sampler"
+  [F]="outputs/chactun_F_maskrcnn_hires960"
 )
 
 # (arm fold seed) triples, fold spread first so the primary result lands early
@@ -41,11 +58,13 @@ for arm in "${ARMS[@]}"; do
     JOBS+=("$arm $fold 0")
   done
 done
-for arm in "${ARMS[@]}"; do
-  for seed in 1 2; do
-    JOBS+=("$arm 0 $seed")
+if [ "$FOLDS_ONLY" -eq 0 ]; then
+  for arm in "${ARMS[@]}"; do
+    for seed in 1 2; do
+      JOBS+=("$arm 0 $seed")
+    done
   done
-done
+fi
 
 LOGDIR="${REPO}/outputs/matrix_logs"
 mkdir -p "$LOGDIR"
