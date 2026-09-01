@@ -70,16 +70,24 @@ ARMS = {
 }
 BASE = "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
 SCALES = [0.5, 0.75, 1.0, 1.5, 2.0, 3.0]
+# Detail-only runs the COARSER side alone. Downsampling then upsampling destroys
+# detail, which is what a coarser survey does; upsampling then back creates none,
+# so a finer survey cannot be simulated from 0.5 m source data and is left out
+# rather than faked. It is also the direction that matters most in practice --
+# most legacy Maya LiDAR is 1 m or coarser.
+DETAIL_SCALES = [0.25, 0.33, 0.5, 0.67, 0.75, 1.0]
 NATIVE_M = 0.5
+MODE = "combined"
 
 
 class ScaledMapper:
     """Test mapper that resamples the tile, simulating a coarser or finer survey."""
 
-    def __init__(self, cfg, scale):
+    def __init__(self, cfg, scale, detail_only=False):
         from detectron2.data import transforms as T
 
         self.scale = scale
+        self.detail_only = detail_only
         self.aug = T.ResizeShortestEdge(
             [cfg.INPUT.MIN_SIZE_TEST], cfg.INPUT.MAX_SIZE_TEST, sample_style="choice")
         self._T = T
@@ -94,6 +102,11 @@ class ScaledMapper:
                      max(16, int(round(w * self.scale)))
             interp = cv2.INTER_AREA if self.scale < 1 else cv2.INTER_LINEAR
             image = cv2.resize(image, (nw, nh), interpolation=interp)
+            if self.detail_only:
+                # back to native size, so the object occupies the SAME pixels it
+                # did in training and only the detail is degraded. This is the
+                # residual a ground-extent tiling strategy would still face.
+                image = cv2.resize(image, (w, h), interpolation=cv2.INTER_LINEAR)
 
         aug_input = self._T.AugInput(image)
         self.aug(aug_input)
@@ -112,16 +125,27 @@ def build_cfg(arm, scale):
     cfg = get_cfg()
     cfg.merge_from_file(model_zoo.get_config_file(BASE))
     cfg.merge_from_file(os.path.join(REPO, "configs", repo_cfg))
-    # scale the test size in step with the raster, so the object size the
-    # network sees actually changes rather than being normalised away
-    cfg.INPUT.MIN_SIZE_TEST = int(round(cfg.INPUT.MIN_SIZE_TEST * scale))
-    cfg.INPUT.MAX_SIZE_TEST = int(round(cfg.INPUT.MAX_SIZE_TEST * max(scale, 1.0)))
+    if MODE != "detail":
+        # scale the test size in step with the raster, so the object size the
+        # network sees actually changes rather than being normalised away
+        cfg.INPUT.MIN_SIZE_TEST = int(round(cfg.INPUT.MIN_SIZE_TEST * scale))
+        cfg.INPUT.MAX_SIZE_TEST = int(round(cfg.INPUT.MAX_SIZE_TEST * max(scale, 1.0)))
     cfg.MODEL.DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     return cfg
 
 
 def main():
+    global MODE, SCALES
     setup_logger()
+    if len(sys.argv) > 1 and sys.argv[1] in ("combined", "detail"):
+        MODE = sys.argv[1]
+    if MODE == "detail":
+        SCALES = DETAIL_SCALES
+    print("MODE: %s" % MODE)
+    if MODE == "detail":
+        print("Object size in network input held CONSTANT; only detail degraded.")
+        print("This isolates the residual left after ground-extent tiling fixes")
+        print("the scale half of the problem.")
     os.chdir(REPO)
     for f in range(5):
         chactun.register_fold(root=os.path.join(REPO, "data", "chactun"), fold=f)
@@ -145,7 +169,8 @@ def main():
                 out = os.path.join("/tmp", "scale_%s_%s_%d" % (arm, scale, fold))
                 evaluator = COCOEvaluator(name, output_dir=out)
                 loader = build_detection_test_loader(
-                    cfg, name, mapper=ScaledMapper(cfg, scale))
+                    cfg, name, mapper=ScaledMapper(cfg, scale,
+                                                   detail_only=(MODE == "detail")))
                 res = inference_on_dataset(model, loader, evaluator)
                 s = res["segm"]
                 aps.append(s["AP"]); aps50.append(s["AP50"])
@@ -165,7 +190,9 @@ def main():
                       (arm, scale, results[(arm, scale)]["AP"]))
 
     print()
-    print("=== scale sensitivity: trained at 0.5 m, tested elsewhere ===")
+    print("=== %s: trained at 0.5 m, tested elsewhere ==="
+          % ("detail loss only, scale held constant" if MODE == "detail"
+             else "scale sensitivity"))
     print("%-6s %7s %12s %9s %8s %10s %10s %8s"
           % ("arm", "scale", "simulated m", "segm AP", "AP50", "building",
              "platform", "aguada"))
@@ -181,9 +208,9 @@ def main():
                      r["building"], r["platform"], r["aguada"], delta))
         print()
 
-    with open("/workspace/outputs/scale_sensitivity.json", "w") as fh:
+    with open("/workspace/outputs/scale_sensitivity_%s.json" % MODE, "w") as fh:
         json.dump({"%s@%.2f" % k: v for k, v in results.items()}, fh, indent=1)
-    print("wrote outputs/scale_sensitivity.json")
+    print("wrote outputs/scale_sensitivity_%s.json" % MODE)
 
 
 if __name__ == "__main__":
