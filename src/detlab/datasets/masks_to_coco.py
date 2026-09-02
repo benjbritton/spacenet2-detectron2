@@ -23,8 +23,11 @@ THREE THINGS THAT WILL SILENTLY RUIN THIS CONVERSION
 
 2. **Semantic masks are not instance masks, and this is not fixable here.**
    Adjacent structures that touch fuse into one connected component. Converted,
-   plain connected components yield 7442 buildings against 9303 published -- a
-   20% undercount, entirely from merging.
+   plain connected components yield 7442 buildings against the 8275 the dataset
+   paper reports as present in these 2094 records (Kokalj et al., Scientific
+   Data 10:558, 2023, Table 6) -- a 10% undercount, entirely from merging.
+   The widely quoted 9303 counts the whole 130 km2 annotated section rather
+   than these tiles, and comparing against it overstates the loss.
 
    --split-touching applies a distance-transform watershed. IT DOES NOT WORK, and
    the sweep is recorded here so the next reader does not repeat it. Same 500
@@ -51,8 +54,10 @@ THREE THINGS THAT WILL SILENTLY RUIN THIS CONVERSION
 
 3. **Structures are cut by tile boundaries.** 3429 components of 9853 touch a tile
    edge and are therefore partial objects, and a structure spanning two tiles
-   appears as two instances -- which is why platforms OVERcount, 2335 against 2110,
-   in the same conversion where buildings undercount. The two errors have
+   appears as two instances -- which is why platforms OVERcount, 2335 against the
+   1996 present in these records, and aguadas worse still at 76 against 51,
+   in the same conversion where buildings undercount. Aguadas suffer most
+   because they are the largest class and cross tile edges most often. The two errors have
    opposite sign and do not cancel; they act on different classes because
    platforms are large enough to cross tiles while buildings are small enough to
    fuse with their neighbours.
@@ -89,7 +94,13 @@ import rasterio
 from scipy import ndimage
 
 CLASSES = ["building", "platform", "aguada"]          # category_id = index + 1
-PAPER_COUNTS = {"building": 9303, "platform": 2110, "aguada": 95}
+# Counts of objects PRESENT IN THESE 2094 RECORDS, from Kokalj et al.,
+# Scientific Data 10:558 (2023), Table 6. Not the area totals -- 9303
+# buildings and 2110 platforms are for the whole 130 km2 annotated section,
+# and the 95 aguadas span the full 220 km2 survey. Comparing a conversion of
+# these tiles against the area totals overstates the building loss and hides
+# the aguada over-count entirely.
+PAPER_COUNTS = {"building": 8275, "platform": 1996, "aguada": 51}
 PX_AREA_M2 = 0.25                                     # 0.5 m pixels
 
 

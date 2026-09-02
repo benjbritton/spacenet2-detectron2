@@ -1620,7 +1620,9 @@ reported plausible-looking losses.
 
 **2. Semantic masks are not instance masks.** Adjacent structures fuse into one
 connected component. Converted, connected components give 7442 buildings against
-9303 published -- a 20% undercount, entirely from merging.
+the 8275 present in these records -- a 10% undercount, entirely from
+merging. (Kokalj et al., Scientific Data 10:558, 2023, Table 6. The widely
+quoted 9303 is the whole 130 km2 annotated section, not these tiles.)
 
 `--split-touching` applies a distance-transform watershed to separate them. It
 does not work, and the sweep is recorded in the converter docstring so nobody
@@ -1638,11 +1640,12 @@ repeats the afternoon. Same 500 tiles, buildings and median footprint:
 Recovering the merges needs about x1.25 WITH the median footprint intact. No
 setting does it: small radii over-split and halve the footprint, larger radii
 lose components to peak suppression and converge back to connected components.
-Connected components stands, and the 20% undercount is documented as a property
+Connected components stands, and the 10% undercount is documented as a property
 of the data rather than hidden.
 
 **3. Tile boundaries cut structures.** 3429 of 9853 instances touch an edge.
-Platforms therefore OVERcount, 2335 against 2110, in the same conversion where
+Platforms therefore OVERcount, 2335 against the 1996 in these records, and
+aguadas worse at 76 against 51, in the same conversion where
 buildings undercount -- opposite signs, different classes, because platforms are
 large enough to cross tiles while buildings are small enough to fuse. Edge
 instances are kept, and every annotation carries an `edge_touching` flag so a
@@ -1703,7 +1706,18 @@ against the COCO defaults of 103.5 / 116.3 / 123.7. Left unchanged the input
 would sit 4.2 to 5.0 standard deviations off centre with PIXEL_STD of 1.0
 applying no scaling at all.
 
-**Empty tiles.** 661 of 2094 tiles carry no annotation and detectron2 drops such
+**Empty tiles, and a documented property that does not hold.** 661 of 2094
+tiles carry no annotation. The dataset paper states that "the dataset contains
+2094 data records with an object in at least one of the segmentation masks" and
+that tiles without structures were excluded, so this was checked against the raw
+masks rather than assumed to be a conversion fault. Of the 661: **652 are
+genuinely empty in all three masks**, and 9 hold foreground too small to survive
+the contour-area filter. So the exclusion the paper describes did not happen for
+about a third of the records, and roughly 83.1 km2 of the 120.6 km2 of imagery
+actually carries an annotated structure.
+
+They are still valuable as negatives, which is the reason for the setting below.
+661 of 2094 tiles carry no annotation and detectron2 drops such
 images by default. FILTER_EMPTY_ANNOTATIONS is False; leaving it True would have
 discarded 31.6% of the data and every negative example with it.
 
@@ -1766,7 +1780,7 @@ unmeasurable, the model reaches 70.24 against ~97.7 achievable. Quantisation
 explains roughly half the shortfall from perfect, not all of it.
 
 Two caveats, both making the headroom an overstatement: it assumes flawless
-precision, and it models only boundary error, not the 20% of buildings fused
+precision, and it models only boundary error, not the 10% of buildings fused
 into merged components where one polygon covers two structures.
 
 At IoU 0.50 for buildings, 90.8% are unmeasurable at 0.90 -- so **the upper half
@@ -1959,7 +1973,7 @@ numbers and data-side interventions do.**
 - **Arm D is undertrained.** Its peak sits at 0.96 of a schedule chosen from the
   baseline convergence curve, with zero decay from peak. +4.16 is a floor.
 - **The labels are the remaining suspect.** With scale ruled out, the untested
-  explanations for the small-object deficit are the 20% of buildings fused into
+  explanations for the small-object deficit are the 10% of buildings fused into
   merged components and the 35% cut by tile boundaries. The `edge_touching` flag
   and the edge-free ground truth already exist to test the second.
 - **Aguada remains unresolved.** No arm moved it significantly. D gave +2.79
