@@ -1706,15 +1706,18 @@ against the COCO defaults of 103.5 / 116.3 / 123.7. Left unchanged the input
 would sit 4.2 to 5.0 standard deviations off centre with PIXEL_STD of 1.0
 applying no scaling at all.
 
-**Empty tiles, and a documented property that does not hold.** 661 of 2094
-tiles carry no annotation. The dataset paper states that "the dataset contains
-2094 data records with an object in at least one of the segmentation masks" and
-that tiles without structures were excluded, so this was checked against the raw
-masks rather than assumed to be a conversion fault. Of the 661: **652 are
-genuinely empty in all three masks**, and 9 hold foreground too small to survive
-the contour-area filter. So the exclusion the paper describes did not happen for
-about a third of the records, and roughly 83.1 km2 of the 120.6 km2 of imagery
-actually carries an annotated structure.
+**Empty tiles.** 661 of 2094 tiles carry no annotation. Checked against the
+raw masks rather than assumed to be a conversion fault: **652 are genuinely
+empty in all three masks**, and 9 hold foreground too small to survive the
+contour-area filter. So roughly 83.1 km2 of the 120.6 km2 of imagery carries an
+annotated structure, and about a third of the tile population is negative
+examples.
+
+The dataset paper describes the records as containing "an object in at least one
+of the segmentation masks". That sentence admits more than one reading, and
+which one the authors intended does not affect anything here -- the empty tiles
+are kept either way, for the reason below. Recorded only because the count is
+worth knowing before choosing a sampler or a filter setting.
 
 They are still valuable as negatives, which is the reason for the setting below.
 661 of 2094 tiles carry no annotation and detectron2 drops such
