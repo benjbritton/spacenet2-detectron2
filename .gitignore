@@ -51,3 +51,7 @@ desktop.ini
 .~lock.*#
 ~
 *.tmp
+
+# Generated figures. Scripts write here; only the copies referenced by a post
+# are tracked, under posts/figures/, so an image is never stored twice.
+figures/

@@ -34,8 +34,8 @@ NETRC="${HOME}/.netrc"
 # Datasets that live outside the repo are symlinked into data/, and a bind mount
 # does not follow a symlink whose target is not itself mounted -- the link
 # resolves to a path the container has never heard of. data/spacenet2 is a real
-# directory and needs nothing; data/chactun points at /home/benja/m2/data/chactun
-# and would silently appear as a broken link.
+# directory and needs nothing. A dataset symlinked to a path outside the
+# repo would otherwise appear inside the container as a broken link.
 #
 # Each symlinked dataset is therefore mounted at its own absolute path, so the
 # link resolves inside the container exactly as it does outside. Read-only:

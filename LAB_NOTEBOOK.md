@@ -2119,7 +2119,7 @@ said nothing about it.
 ### Two routes to portability, one of them untried
 
 1. **Specify the input.** Publish the recipe, run it on new data. Achievable
-   here: `C:\g1\tools\GLiHT_rvt.py` documents the pipeline end to end and the
+   here: the project RVT generation script documents the pipeline end to end and the
    DEMs are on disk at three resolutions. The cost is that every user must run
    that pipeline.
 
