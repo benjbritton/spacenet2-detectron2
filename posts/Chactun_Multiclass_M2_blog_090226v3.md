@@ -2,13 +2,14 @@
 *Building a three-class detector for ancient Maya structures on Chactún, testing six mechanisms across 36 training runs, then taking it to a different LiDAR survey to find out what portability actually requires.*
 ---
 Milestone C of this independent study asked for experience building a multiclass object detector from a provided dataset. The dataset was Chactún — 2,094 tiles of airborne laser scanning over 120.6 km² of the central Yucatán Peninsula, annotated for three classes of ancient Maya feature. The work divides cleanly in two.
-The first half is what was assigned: build the detector, then find out what makes it better. The result recovers 92% of annotated structures at a survey-appropriate operating point. Six candidate improvements were tested against it, and the one that worked was a change to the data pipeline rather than to the model — it cost no extra compute and improved every class. The four model-side changes, including the two with the strongest prior arguments, produced nothing measurable.
-The second half was not assigned and produced the more transferable lesson. The trained detector was handed a completely different LiDAR survey and asked to be useful on it. It was not, and the reason had nothing to do with the architecture, the training or the tuning — it lay in what the source dataset does and does not make available. That failure is what identifies the requirements a portable tool would have to meet, and those requirements are the most useful thing this milestone produced.
+The first half is what was assigned: build the detector, then establish what improves it. The detector recovers **92% of annotated structures** at a survey-appropriate operating point. Six candidate improvements were then tested against it under five-fold cross-validation — 36 training runs, paired comparisons, a measured seed-noise floor and multiple-comparison correction. One produced a replicated gain of **+4.16 AP** across every class and every fold, and it came from the data pipeline rather than the model, at no additional compute. The four model-side candidates came in within noise, which locates the remaining headroom: not in the architecture.
+
+The second half was not assigned. The detector was taken to a different LiDAR survey — different sensor, processing chain and resolution — and evaluated there. It did not transfer, and the diagnosis is the substantive result: the constraint is not architectural but lies in what the source dataset makes available. Establishing that required measuring resolution sensitivity, decomposing it into scale and detail, and reconstructing the input representation from a second data source. The requirements a portable tool must satisfy fall directly out of that measurement, and they are the most transferable output of the milestone.
 ---
-## The dataset, and three ways to ruin it before training starts
+## The dataset, and three properties the conversion has to handle
 Chactún (Somrak, Džeroski & Kokalj, *Scientific Data* 2023, CC BY 4.0) ships 480×480 tiles at 0.5 m, three bands — sky-view factor, positive openness, slope — with annotations as **semantic masks**, one binary raster per class per tile.
-Converting semantic masks into instance annotations is where the damage happens, and three specific things will do it quietly.
-**The masks are inverted.** Object pixels are 0; background is 255. Reading them the obvious way, mask > 0, produces one tile-sized "instance" per class per tile. Training proceeds, the loss decreases, and the model learns nothing. This was caught only because the output was absurd — nothing raised an error.
+Converting semantic masks into instance annotations is the step that determines what the model can learn, and three properties of this dataset govern the result.
+**The masks are inverted.** Object pixels are 0; background is 255. Reading them the obvious way, mask > 0, produces one tile-sized "instance" per class per tile. Training proceeds and the loss decreases while the model learns nothing, since no error is raised. The inverted polarity was identified by inspecting the converted output rather than by any failure signal.
 **Semantic masks are not instance masks.** Adjacent structures that touch fuse into one connected component. Plain connected components recover 7,442 buildings against the 8,275 the dataset paper reports as present in these tiles — a 10% undercount, entirely from merging. (The often-quoted 9,303 is the count for the whole 130 km² annotated section, not for the 2,094 records, and comparing against it overstates the loss.) A distance-transform watershed was tried to separate them and does not work at any setting:
 | | | | |
 |-|-|-|-|
@@ -21,14 +22,14 @@ Converting semantic masks into instance annotations is where the damage happens,
 | watershed d=30 | 1,678 | ×1.00 | 157 m² |
 
 Recovering the merges needs roughly ×1.25 *with the footprint intact*. Small radii over-split single structures and halve their size; large radii lose components to peak suppression and converge back to plain components. The undercount stands, documented rather than hidden.
-**Tile boundaries cut structures.** 3,429 of 9,853 instances touch an edge. Platforms therefore *over*count — 2,335 against the 1,996 present in the records, +17% — in the same conversion where buildings undercount. Aguadas fare worse still at 76 against 51, +49%, because they are the largest class and cross tile boundaries most often. Opposite errors on different classes, because platforms are large enough to cross tiles while buildings are small enough to fuse with neighbours. Edge instances are kept, since a half-visible structure is a real detection target, and every annotation carries a flag so an evaluation can exclude them without reconverting.
+**Tile boundaries cut structures.** 3,429 of 9,853 instances touch an edge. Platforms therefore *over*count — 2,335 against the 1,996 present in the records, +17% — in the same conversion where buildings undercount. Aguadas diverge further still at 76 against 51, +49%, because they are the largest class and cross tile boundaries most often. Opposite errors on different classes, because platforms are large enough to cross tiles while buildings are small enough to fuse with neighbours. Edge instances are kept, since a half-visible structure is a real detection target, and every annotation carries a flag so an evaluation can exclude them without reconverting.
 ---
-## No spatially blocked split is possible, and that is a finding
-Milestone B established spatially blocked splits as the honest way to hold out geographic data. Chactún cannot take one. The rasters carry no CRS and no affine transform, and the layout is not recoverable from the pixels either.
+## Why a spatially blocked split is not possible here
+Milestone B established spatially blocked splits as the appropriate way to hold out geographic data. Chactún does not support one, and establishing that took two independent tests. The rasters carry no CRS and no affine transform, and the layout is not recoverable from the pixels either.
 **The numbering carries no layout.** Edge correlation across all 2,093 consecutive-ID pairs is 0.291, against a random-pair baseline of 0.291. A sweep of every candidate row width from 2 to 259 is flat at ~0.283, with no spike anywhere.
 **No seams exist at all.** An all-pairs search over 4.38 million ordered pairs, both axes, finds zero pairs that are both reciprocal and z > 8. Best-match z-scores top out at 6.2 and reciprocal matches occur for 4–6% of tiles, which is chance.
 That negative could have been manufactured by per-tile contrast stretching, which would hide a real seam — so that was ruled out separately. Only 34% of tiles are pinned to exactly 0–255 across all bands, and per-tile ranges vary with the terrain, so a shared seam would have survived. The tiles genuinely are not neighbours.
-This is almost certainly deliberate. Publishing precise coordinates for thousands of undocumented Maya structures is a looting risk, and withholding georeferencing is normal practice for unexcavated sites. It is not an oversight to be worked around.
+This is almost certainly deliberate geomasking. Publishing precise coordinates for thousands of undocumented Maya structures is a looting risk, and withholding georeferencing is standard practice for unexcavated sites. It is a protective measure, not an oversight to be worked around.
 The substitute blocks on **appearance**— cluster the tiles, assign whole clusters to one side — and it barely works. Against a random control it moves cross-split similarity from 0.743 to 0.761 (the wrong way), p95 from 0.915 to 0.907, max from 0.978 to 0.954. Only the tail improves. Chactún tiles are homogeneous enough that every validation tile has a near-twin in training under any partition. **Validation scores on this dataset are optimistic however it is cut**, and that belongs in the results rather than a footnote.
 ---
 ## The experiment
@@ -48,7 +49,7 @@ Comparisons are **paired by fold**, because folds differ from each other far mor
 The seed noise floor was measured rather than assumed: fold 0 was run at three seeds per arm for arms A, B and C, giving 0.80–1.39 sd on segmentation AP.
 Two predictions were written into the configs *before* the runs, so they could not be reasoned backwards afterwards.
 ---
-## What moved, and what didn't
+## Results across the six arms
 | | | | |
 |-|-|-|-|
 | **arm**|**segm AP**|**vs control**|**verdict** |
@@ -59,14 +60,14 @@ Two predictions were written into the configs *before* the runs, so they could n
 | E — repeat sampling | 38.65 ± 2.31 | −0.06 | null |
 | B — shifted anchors | 37.91 ± 2.67 | −0.80 | null |
 
-**Anchor scale is falsified.** At the 800 px input these configs use, 31.8% of buildings fall below the smallest 32 px anchor — an obvious-looking problem with an obvious-looking fix. Shifting the ladder down an octave gave −0.80 ± 1.07, below the seed noise floor, with *every* metric negative. This is the fifth mechanism in this project to survive attribution analysis and then die under ablation.
+**Anchor scale is ruled out.** At the 800 px input these configs use, 31.8% of buildings fall below the smallest 32 px anchor — an obvious-looking problem with an obvious-looking fix. Shifting the ladder down an octave gave −0.80 ± 1.07, below the seed noise floor, with *every* metric negative. It is the fifth mechanism in this project to correlate with the symptom and then not survive ablation — a pattern worth noting in its own right.
 **Cascade confirmed a predicted pattern at an irrelevant magnitude.** The prediction on record was AP50 within noise, AP75 favouring cascade, AP(0.5:0.95) favouring it partly spuriously. Observed: AP50 −0.36, AP75 +2.23, segm AP +0.68. The pattern held; nothing reached significance; it costs 27% more compute per run.
-**Resolution is falsified too, and in the wrong direction.** Arm B ruled out giving small objects *anchors*; arm F tested giving them  *features*, which is a different mechanism — at stride 4, a 25 px building covers about 6 feature cells natively and about 12 at double scale. Two competing predictions were recorded in the config beforehand, +1.5 to +3.0 against +0 to +1.5. The result was **+0.10**, and small-object AP went *down* by 0.71. Both predictions agreed that a genuine resolution effect had to appear in AP75 and small-object AP rather than AP50; it appeared in neither. The mechanism is refuted in direction, not merely in magnitude.
+**Resolution is ruled out as well, and the effect runs counter to the prediction.** Arm B ruled out giving small objects *anchors*; arm F tested giving them  *features*, which is a different mechanism — at stride 4, a 25 px building covers about 6 feature cells natively and about 12 at double scale. Two competing predictions were recorded in the config beforehand, +1.5 to +3.0 against +0 to +1.5. The result was **+0.10**, and small-object AP went *down* by 0.71. Both predictions agreed that a genuine resolution effect had to appear in AP75 and small-object AP rather than AP50; it appeared in neither. The effect runs opposite to the prediction, so the mechanism is ruled out on direction as well as magnitude.
 That closes the scale family. Object scale can bind through the anchors that propose regions or the features that characterise them. Neither does.
-**D4 augmentation is the only thing that worked**, and it worked on everything: +4.16 segm AP (t = 7.94), AP75 +5.89, building +4.91, platform +4.77, small objects +2.95. All five folds positive. Across roughly 42 tests in this milestone a Bonferroni threshold sits near 0.0012, and arm D's core results survive it while every marginal finding does not.
+**D4 augmentation produced the one measurable gain**, and it improved every class: +4.16 segm AP (t = 7.94), AP75 +5.89, building +4.91, platform +4.77, small objects +2.95. All five folds positive. Across roughly 42 tests in this milestone a Bonferroni threshold sits near 0.0012, and arm D's core results survive it while every marginal finding does not.
 Its validity rests on a property of the bands. Sky-view factor, positive openness and slope are computed **isotropically**, so rotating them is label-preserving. Rotating a  **hillshade** would not be — a fixed illumination azimuth is baked into the pixels, and the rotated image depicts terrain lit from an angle it never was. The field's most common visualization would have blocked the only intervention that worked here. D4 rather than arbitrary rotation also preserves the cardinal alignment common in Maya architecture, and on square tiles np.rot90 is exact where an affine warp would blur 25 px buildings.
 The transforms were verified label-preserving rather than assumed: rasterise a tile's polygons, rotate that raster, and compare against the same polygons pushed through the coordinate transform. IoU 1.0000 for all four rotations. A rotation that moves pixels but not coordinates trains silently with every label detached from its object, and nothing downstream flags it.
-**And my first explanation for arm D was wrong.** Regularisation predicts the baseline peaks early and decays. It does decay — but only 1.18 on building, against a 4.91 gain, so it accounts for at most a quarter. The trajectories show the arms identical through iteration 1500, after which the baseline stops improving and arm D does not. The baseline *exhausts* what 1,669 tiles can teach it; D4 keeps finding new information because each epoch presents genuinely different views. That also implies arm D was still climbing when training stopped, so +4.16 is a floor rather than the effect size.
+**The trajectories refine the explanation.** Regularisation would predict the baseline peaks early and decays. It does decay — but only 1.18 on building, against a 4.91 gain, so it accounts for at most a quarter. The trajectories show the arms identical through iteration 1500, after which the baseline stops improving and arm D does not. The baseline *exhausts* what 1,669 tiles can teach it; D4 keeps finding new information because each epoch presents genuinely different views. That also implies arm D was still climbing when training stopped, so +4.16 is a floor rather than the effect size.
 ---
 ## What the model actually does
 Every number above is COCO AP, which integrates over all score thresholds and rewards precision at high confidence. That is not what an archaeological survey tool is for. A candidate generator runs at a **low** threshold, hands an expert many candidates, and is judged on what it missed — false positives are triage cost, not failure.
@@ -80,12 +81,12 @@ Measured properly, pooled over all 2,094 tiles (120.6 km², every structure scor
 | 0.50 | 72.8% | 32 | 75.0% | 32 |
 | 0.70 | 67.7% | 23 | 65.1% | 16 |
 
-**AP badly understated the tool.** Arm D at AP 42.87 recalls 92% of real structures at a low threshold. And its advantage lives exactly where the tool would operate — +7.3 points at score 0.05, +2.2 at 0.50, and at 0.70 it is *worse* than the control. At a matched budget of 100 FP/km² the honest gain is about +3.0 points, not +7.3, since arm D buys some of its recall by emitting more detections.
+**AP understates this tool.** Arm D at AP 42.87 recalls 92% of real structures at a low threshold. And its advantage lives exactly where the tool would operate — +7.3 points at score 0.05, +2.2 at 0.50, and at 0.70 it is *worse* than the control. At a matched budget of 100 FP/km² the like-for-like gain is about +3.0 points, not +7.3, since arm D buys some of its recall by emitting more detections.
 ![Arm D detections on Chactun across five tiles spanning best to worst per-tile F1](figures/chactun_detections_on_chactun.png)
 
 ---
 ---
-## One class the input cannot express
+## Aguadas: a class the input bands do not carry
 Aguadas — Maya water reservoirs — score 26–30 pooled, far below building and platform, and nothing moved them significantly. The reason is not scarcity, though there are only 76.
 Measured against unannotated terrain, mean band values inside each class:
 | | | | |
@@ -122,10 +123,10 @@ Two runs were made on the G-LiHT tile: the G1 composite as delivered, and a reco
 
 ![Detections on the G-LiHT tile, densest clusters](figures/gliht_S395_clusters.png)
 ---
-Both were unusable on review. The composite "found buildings a little bit, missing many"; the platform class fired mostly on walls and straight edges; the aguada detections were not worthwhile. The reconstructed bands were worse — "triggering on unknown factors having nothing to do with human origin."
+Neither produced useful detections on review. The composite "found buildings a little bit, missing many"; the platform class fired mostly on walls and straight edges; the aguada detections were not worthwhile. The reconstructed bands scored lower still — "triggering on unknown factors having nothing to do with human origin."
 ---
 ## What portability actually requires
-The reconstruction failing *worse* than the raw composite is the informative part, and it identifies the constraint precisely.
+The reconstruction scoring *below* the raw composite is the informative part, and it identifies the constraint precisely.
 Band **statistics**were matched — each band rescaled so its valid pixels carried Chactún's mean and standard deviation — rather than the stretch **function**. Sky-view factor is physically bounded 0 to 1. If Chactún mapped that range to bytes by some fixed function, the correct move is to apply that identical function. Recentring the distribution instead assigns *different byte values to the same physical quantity*, so the model received a third representation rather than the training one.
 And the stretch cannot be recovered. Verified against the deposit's file list, Chactún provides ML-ready visualizations, masks, a canopy height model and Sentinel-1/2 imagery. **There is no DEM, no DTM and no point cloud.**
 That is three restrictions, each irreversible:
@@ -138,20 +139,31 @@ Nothing in-domain revealed it. Six arms, 36 training runs, cross-validated evalu
 ---
 ## Future work — outside the scope of this milestone
 What follows was not part of the assigned work and nothing here was built or tested. It is recorded as a design specification derived from the negative result above: given what was observed, these are the properties a portable regional tool would have to satisfy, and why.
-The derivation runs: *the model failed to transfer* →  *because its input representation could not be reproduced* →  *therefore portability requires either a reproducible input specification, or a model indifferent to the representation it is given.*
+The derivation runs: *the model did not transfer* →  *because its input representation could not be reproduced* →  *therefore portability requires either a reproducible input specification, or a model indifferent to the representation it is given.*
 The first route is straightforward and constraining — publish the recipe and require every user to run it.
 The second is more interesting, and it is the direct analogue of the only intervention that worked in this milestone. D4 gained +4.16 by augmenting over a nuisance variable instead of controlling it. Orientation was the nuisance there; **rendering is the nuisance here.** Training on the same terrain rendered many different ways — different stretches, visualizations and blends — would teach a model to key on the shape of a relief signature rather than one rendering's byte patterns.
 Testing it would require holding out a **rendering**, not merely a set of tiles, or the experiment measures in-domain accuracy and says nothing about robustness. It would also require accepting a real risk: forced invariance across genuinely different visualizations may cause a model to learn only their intersection, buying robustness at some cost in accuracy. That is worth measuring rather than assuming.
 Such a tool would aim at high-throughput, out-of-domain candidate retrieval — prioritising sensitivity and spatial transferability across uncurated third-party LiDAR, maintaining feature invariance across heterogeneous sensor resolutions, point densities and canopy-removal artefacts, and populating downstream spatial databases with candidate centroids and areas without site-specific tuning. None of those properties has been demonstrated here. They are the specification, arrived at by finding out what breaks without them.
 ---
 ## What carries forward
-Two milestones, and the same pattern in both. In Milestone B, four proposed mechanisms for inter-city difficulty were falsified and the real story was in the imagery. In Milestone C, four model-side interventions produced nothing and the one gain came from the data pipeline.
-- **Model-side changes did not move this problem; data-side changes did.** Anchors, cascade refinement, input resolution and rare-class oversampling: all null. Augmentation: +4.16.
+Two milestones, and the same pattern in both. In Milestone B, four candidate mechanisms for inter-city difficulty were tested and ruled out, and the operative factor turned out to be in the imagery. In Milestone C, four model-side interventions came in within noise and the measurable gain came from the data pipeline.
+
+What the milestone establishes, as distinct from what it reports:
+
+- **A three-class detector at 92% recall**, with its error modes separated per class into detection failure versus classification failure, and its operating characteristics measured as recall against false positives per km² rather than as AP alone.
+- **A measurement ceiling for the dataset itself** — how much of COCO AP the annotation precision can actually support, which turns out to be about half the threshold range for the dominant class.
+- **A resolution envelope of roughly 0.33–1 m**, decomposed into the part attributable to object scale and the part to information loss, with ground-extent tiling identified as recovering about two-thirds of the penalty.
+- **A portability constraint with a diagnosed cause**, established by external evaluation rather than inferred.
+- **A documentation discrepancy in the source dataset**: 652 of its 2,094 records contain no annotated structure, where the dataset paper states such tiles were excluded.
+
+And the methodological findings:
+
+- **Model-side changes did not move this problem; data-side changes did.** Anchors, cascade refinement, input resolution and rare-class oversampling: all within noise. Augmentation: +4.16.
 - **Report at the operating point the tool will actually use.** AP made a 92%-recall detector look mediocre.
 - **A class can be unrepresented rather than underlearned.** No amount of data fixes a band that does not carry the signal.
-- **In-domain evaluation cannot detect a portability failure.** It took contact with foreign data to find the constraint that mattered most.
+- **In-domain evaluation does not reveal portability limits.** It took contact with foreign data to find the constraint that mattered most.
 - **Train as close to the source measurement as the data allows.** Every processing step between the LiDAR and the training raster is a restriction the model inherits permanently.
 ---
 ## Reproducing this
-Everything is in the repository. src/detlab/datasets/masks_to_coco.py converts the semantic masks, with all three traps and the failed watershed sweep documented in its docstring. scripts/make_chactun_split.py builds the folds and measures the leak. scripts/train_chactun.py runs any arm on any fold at any seed, and scripts/run_chactun_matrix.sh runs the full matrix. The evidence for the negative results has its own scripts — chactun_layout.py and chactun_seams.py for the missing geography, chactun_headroom.py for the measurement ceiling, chactun_scale_sensitivity.py for the resolution curve, chactun_operating_point.py for recall against false positives per km².
-The lab notebook carries the full record, including the predictions that were wrong and the explanations that had to be withdrawn.
+Everything is in the repository. src/detlab/datasets/masks_to_coco.py converts the semantic masks, with all three properties and the watershed sweep and its outcome documented in its docstring. scripts/make_chactun_split.py builds the folds and measures the leak. scripts/train_chactun.py runs any arm on any fold at any seed, and scripts/run_chactun_matrix.sh runs the full matrix. The evidence for the negative results has its own scripts — chactun_layout.py and chactun_seams.py for the missing geography, chactun_headroom.py for the measurement ceiling, chactun_scale_sensitivity.py for the resolution curve, chactun_operating_point.py for recall against false positives per km².
+The lab notebook carries the full record, including the predictions the data refuted and the explanations it revised.
