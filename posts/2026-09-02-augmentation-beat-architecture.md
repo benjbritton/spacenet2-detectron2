@@ -1,14 +1,14 @@
-# Augmentation beat every architecture change. None of it made the model portable.
+# The data pipeline mattered more than the architecture. The input specification mattered more than both.
 
-*A three-class detector for ancient Maya structures on Chactún, six mechanisms tested across 36 training runs, and what happened when it met somebody else's LiDAR.*
+*Building a three-class detector for ancient Maya structures on Chactún, testing six mechanisms across 36 training runs, then taking it to a different LiDAR survey to find out what portability actually requires.*
 
 ---
 
 Milestone C of this independent study asked for experience building a multiclass object detector from a provided dataset. The dataset was Chactún — 2,094 tiles of airborne laser scanning over central Yucatán, annotated for three classes of ancient Maya feature. The work divides cleanly in two.
 
-The first half is what was assigned: build the detector, find out what makes it better. Six mechanisms were tested. Five did nothing. The one that worked was a change to the data pipeline, not the model, and it cost no extra compute.
+The first half is what was assigned: build the detector, then find out what makes it better. The result recovers 92% of annotated structures at a survey-appropriate operating point. Six candidate improvements were tested against it, and the one that worked was a change to the data pipeline rather than to the model — it cost no extra compute and improved every class. The four model-side changes, including the two with the strongest prior arguments, produced nothing measurable.
 
-The second half was not assigned, and it produced the more useful finding. The trained model was handed a completely different LiDAR survey and asked to do something useful with it. It could not. The reason turned out to have nothing to do with the architecture, the training, or the tuning, and everything to do with what the source dataset does and does not provide.
+The second half was not assigned and produced the more transferable lesson. The trained detector was handed a completely different LiDAR survey and asked to be useful on it. It was not, and the reason had nothing to do with the architecture, the training or the tuning — it lay in what the source dataset does and does not make available. That failure is what identifies the requirements a portable tool would have to meet, and those requirements are the most useful thing this milestone produced.
 
 ---
 
@@ -91,7 +91,7 @@ Two predictions were written into the configs *before* the runs, so they could n
 
 **Cascade confirmed a predicted pattern at an irrelevant magnitude.** The prediction on record was AP50 within noise, AP75 favouring cascade, AP(0.5:0.95) favouring it partly spuriously. Observed: AP50 −0.36, AP75 +2.23, segm AP +0.68. The pattern held; nothing reached significance; it costs 27% more compute per run.
 
-**Resolution is falsified too, and in the wrong direction.** Arm B ruled out giving small objects *anchors*; arm F tested giving them *features*, which is a different mechanism — at stride 4, a 25 px building covers about 6 feature cells natively and about 12 at double scale. Two predictions were recorded beforehand: +1.5 to +3.0 against +0 to +1.5. The result was **+0.10**, and small-object AP went *down* by 0.71. Both predictions agreed that a genuine resolution effect had to appear in AP75 and small-object AP rather than AP50; it appeared in neither. The mechanism is refuted in direction, not merely in magnitude.
+**Resolution is falsified too, and in the wrong direction.** Arm B ruled out giving small objects *anchors*; arm F tested giving them *features*, which is a different mechanism — at stride 4, a 25 px building covers about 6 feature cells natively and about 12 at double scale. Two competing predictions were recorded in the config beforehand, +1.5 to +3.0 against +0 to +1.5. The result was **+0.10**, and small-object AP went *down* by 0.71. Both predictions agreed that a genuine resolution effect had to appear in AP75 and small-object AP rather than AP50; it appeared in neither. The mechanism is refuted in direction, not merely in magnitude.
 
 That closes the scale family. Object scale can bind through the anchors that propose regions or the features that characterise them. Neither does.
 
@@ -173,9 +173,9 @@ Both were unusable on review. The composite "found buildings a little bit, missi
 
 ---
 
-## Why it didn't travel
+## What portability actually requires
 
-The reconstruction failing *worse* than the raw composite is the informative part.
+The reconstruction failing *worse* than the raw composite is the informative part, and it identifies the constraint precisely.
 
 Band **statistics** were matched — each band rescaled so its valid pixels carried Chactún's mean and standard deviation — rather than the stretch **function**. Sky-view factor is physically bounded 0 to 1. If Chactún mapped that range to bytes by some fixed function, the correct move is to apply that identical function. Recentring the distribution instead assigns *different byte values to the same physical quantity*, so the model received a third representation rather than the training one.
 

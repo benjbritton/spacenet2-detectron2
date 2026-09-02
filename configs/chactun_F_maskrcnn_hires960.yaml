@@ -9,12 +9,12 @@
 # Raising the input resolution is a different mechanism, not a restatement of
 # the same one. It does two things where anchor shifting did one:
 #
-# 1. It moves objects up the anchor ladder, as arm B did in reverse. At the
-# 800 px input of arms A-C, 31.8% of buildings fall below the smallest
-# 32 px anchor; at 960 that drops to roughly 20%.
-# 2. It gives P2 genuinely finer features. At stride 4, a 25 px building
-# covers about 6 feature cells at native scale and about 12 at 2x. Anchor
-# shifting cannot do this -- it re-labels the same features.
+#   1. It moves objects up the anchor ladder, as arm B did in reverse. At the
+#      800 px input of arms A-C, 31.8% of buildings fall below the smallest
+#      32 px anchor; at 960 that drops to roughly 20%.
+#   2. It gives P2 genuinely finer features. At stride 4, a 25 px building
+#      covers about 6 feature cells at native scale and about 12 at 2x. Anchor
+#      shifting cannot do this -- it re-labels the same features.
 #
 # Mechanism 1 is already falsified by arm B. If arm F moves the numbers, the
 # cause is mechanism 2, and the conclusion is that feature resolution binds
@@ -36,17 +36,18 @@
 #
 # PREDICTIONS, RECORDED BEFORE THE RESULTS LANDED
 # -----------------------------------------------
-# Two, deliberately different, so the arm discriminates between them.
+# Two competing hypotheses, deliberately different, so the arm
+# discriminates between them rather than merely confirming one.
 #
 # First: +1.5 to +3.0 AP over baseline. Reasoning: expanding the small house
-# mounds gives P2 enough spatial resolution to trigger RPN candidates that the
-# baseline misses.
+#   mounds gives P2 enough spatial resolution to trigger RPN candidates that the
+#   baseline misses.
 #
 # Second: +0 to +1.5, most likely +0.5 to +1.0. Reasoning: the anchor-coverage
-# half of that mechanism is already falsified by arm B, and the marginal
-# feature gain here is smaller than it first appears -- see the arithmetic
-# below. Every arm in the completed A/B/C matrix sat within +-1 AP of every
-# other.
+#   half of that mechanism is already falsified by arm B, and the marginal
+#   feature gain here is smaller than it first appears -- see the arithmetic
+#   below. Every arm in the completed A/B/C matrix sat within +-1 AP of every
+#   other.
 #
 # THE ARITHMETIC THAT SEPARATES THEM. It is tempting to describe this as
 # turning 6x6 mounds into 12x12, but the baseline is not native. Arms A-C
@@ -73,16 +74,16 @@
 _BASE_: "chactun_base.yaml"
 
 MODEL:
- ANCHOR_GENERATOR:
- SIZES: [[32], [64], [128], [256], [512]]
+  ANCHOR_GENERATOR:
+    SIZES: [[32], [64], [128], [256], [512]]
 
 INPUT:
- # Jitter range scaled to end at 960, mirroring the stock recipe's structure
- # (a range for training, a single size for test) so the only thing that
- # differs from arm A is the scale itself.
- MIN_SIZE_TRAIN: (768, 832, 896, 960)
- MIN_SIZE_TEST: 960
- MAX_SIZE_TRAIN: 1600
- MAX_SIZE_TEST: 1600
+  # Jitter range scaled to end at 960, mirroring the stock recipe's structure
+  # (a range for training, a single size for test) so the only thing that
+  # differs from arm A is the scale itself.
+  MIN_SIZE_TRAIN: (768, 832, 896, 960)
+  MIN_SIZE_TEST: 960
+  MAX_SIZE_TRAIN: 1600
+  MAX_SIZE_TEST: 1600
 
 OUTPUT_DIR: "outputs/chactun_F_maskrcnn_hires960"
