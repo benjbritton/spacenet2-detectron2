@@ -2061,3 +2061,87 @@ That is not a reason to abandon the multiclass goal. It is the specification of
 what remains: the sub-classifier's real job is the platform/building boundary,
 worth 518 recoverable instances, and aguada needs a band that represents
 depressions rather than more examples of an invisible object.
+
+## 2026-09-02 - Transfer to G-LiHT: the model is not portable, and the reason generalises
+
+The Milestone C model was run on data it had never seen -- G-LiHT Yucatan,
+South GLAS tile l0s395, 33 cm, edge-fixed. The framing was deliberately
+practical: someone hands over their LiDAR and asks whether this helps them find
+structures.
+
+It does not. Both attempts were judged unusable by review, and the reason is
+structural rather than a tuning failure.
+
+### What was run
+
+Ground-extent tiling at 240 m (727 px at 33 cm), 25% overlap, cross-tile NMS in
+map coordinates, score threshold 0.05, output as GeoJSON in EPSG:32615.
+
+| input | detections | per km2 | review |
+|---|---|---|---|
+| G1 composite as-is | 178 | 40 | found buildings a little, missing many; platform fired on walls and straight edges; aguada not worthwhile |
+| RVT SVF/OpnsPos/Slope restacked | 59 | 12 | "deplorably bad ... triggering on unknown factors having nothing to do with human origin" |
+
+The matched bands were WORSE than the blend, which is the opposite of the
+prediction recorded before the run.
+
+### Why matching the bands made it worse
+
+Because band STATISTICS were matched rather than the stretch FUNCTION. SVF is
+physically bounded 0-1; if Chactun mapped that range to bytes by some fixed
+function, the correct move is to apply the identical function. Instead each band
+was recentred on Chactun's mean and standard deviation, which assigns different
+byte values to the same physical quantity. The model was handed a third
+representation, not the training one.
+
+### And the stretch cannot be recovered
+
+Verified against the figshare file list rather than assumed. The Chactun deposit
+holds `lidar.zip` (8-bit visualisations), `masks.zip`, `CHM.zip`, `S1.zip` and
+`S2.zip`. **There is no DEM, no DTM and no point cloud.** The function that
+produced byte 216 from a physical sky-view factor is therefore unrecoverable,
+and no amount of care reconstructs it.
+
+### The finding
+
+**A detector is only as portable as its input specification.** Chactun's is not
+specified well enough to port, so a model trained on it cannot be applied to new
+LiDAR however robust its architecture. This is a property of the DATASET, not of
+Mask R-CNN, and it would apply equally to any architecture trained on it.
+
+That is the constraint on the stated goal of a tool that runs prolifically and
+promiscuously on other people's data, and it was not visible from any in-domain
+measurement. Six arms, 36 training runs and a full cross-validated evaluation
+said nothing about it.
+
+### Two routes to portability, one of them untried
+
+1. **Specify the input.** Publish the recipe, run it on new data. Achievable
+ here: `C:\g1\tools\GLiHT_rvt.py` documents the pipeline end to end and the
+ DEMs are on disk at three resolutions. The cost is that every user must run
+ that pipeline.
+
+2. **Make the model indifferent to the rendering.** Train on the SAME terrain
+ rendered many different ways -- different stretches, visualisations, blends
+ -- so it learns structure shape rather than one rendering's byte patterns.
+
+Route 2 is the direct analogue of the only intervention that worked all
+milestone. D4 gave +4.16 AP by augmenting over a nuisance variable instead of
+controlling it; orientation was the nuisance then, RENDERING is the nuisance
+here. It cannot be tested on Chactun, which cannot be re-rendered, but it can be
+tested on the G-LiHT DEMs, and it does NOT require new annotations: the ~2000
+existing single-class "Maya structure" boxes are sufficient to ask whether
+rendering-augmentation buys robustness.
+
+### Also recorded
+
+- Detections coincident across classes were measured rather than assumed: 3 of
+ 59 in the matched-band run and 14 of 178 in the G1 run are genuine
+ building/platform overlaps within a run; 11 more pairs were an artefact of
+ drawing two runs on one image.
+- Detections centred on nodata are rare (3% and 1%). The boxes seen in empty
+ areas are more likely on kriging artefacts along data edges -- valid-valued
+ but meaningless pixels, which a nodata filter cannot catch. Eroding the valid
+ mask inward before tiling would.
+- The Chactun deposit also contains a canopy height model and Sentinel-1/2
+ layers that this project has never used.

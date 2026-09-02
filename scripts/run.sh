@@ -40,6 +40,14 @@ NETRC="${HOME}/.netrc"
 # Each symlinked dataset is therefore mounted at its own absolute path, so the
 # link resolves inside the container exactly as it does outside. Read-only:
 # nothing in a training run should be writing back into the source imagery.
+# The G-LiHT archive lives on the D: drive, outside both the repo and the WSL
+# filesystem. Mounted read-only so inference can read it without any chance of
+# writing back into the source imagery.
+EXTRA_MOUNTS=()
+if [ -d /mnt/d/_Archive_EdgeFixed ]; then
+  EXTRA_MOUNTS+=(-v "/mnt/d:/d:ro")
+fi
+
 DATA_MOUNTS=()
 for d in "${REPO}"/data/*; do
   if [ -L "$d" ]; then
@@ -76,6 +84,7 @@ exec docker run --rm ${TTY_FLAGS} ${USER_FLAGS} \
   --shm-size=8g \
   -v "${REPO}:/workspace" \
   ${DATA_MOUNTS[@]+"${DATA_MOUNTS[@]}"} \
+  ${EXTRA_MOUNTS[@]+"${EXTRA_MOUNTS[@]}"} \
   -v "${CACHE}:/cache" \
   -v "${NETRC}:/cache/.netrc" \
   -e HOME=/cache \
