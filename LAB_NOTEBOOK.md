@@ -579,7 +579,7 @@ averaging weights the easy case. The macro average is the comparable figure.
 > across all three seeds: **macro 0.7459 +/- 0.0012** (Vegas 0.8948, Paris
 > 0.7787, Shanghai 0.6848, Khartoum 0.6254).
 >
-> The correction is worth 0.0003. That is the part to keep: the honest number and
+> The correction is worth 0.0003. That is the part to keep: the comparable number and
 > the tuned one were indistinguishable, so nothing was ever gained by the slip --
 > which is exactly why it survived six months of quotation unnoticed. A number
 > being unimportant is what lets it go unchecked.
@@ -589,7 +589,7 @@ Vegas >> Paris > Shanghai > Khartoum, with similar gaps. The pipeline recovers
 the known difficulty structure of this dataset even if the absolute level is
 optimistic.
 
-Milestone B stated honestly: the plan asks for mAP@[0.5:0.95] within 20% of a
+Milestone B stated accurately: the plan asks for mAP@[0.5:0.95] within 20% of a
 published reference, and **no published mAP for SN2 exists**. Substituting F1,
 the metric the reference actually reports, the target is >= 0.554 against 0.7459
 achieved.
@@ -1023,7 +1023,7 @@ disagreement between runs.
   in the bulk of the easy city. That is worth knowing before choosing what to
   improve next.
 
-Honest limits: n=4 cities, so every rank correlation here is suggestive and
+Limits: n=4 cities, so every rank correlation here is suggestive and
 nothing more. Size and relief are physically entangled -- small, single-storey,
 flat-roofed buildings are one building type, not two independent variables -- and
 four cities cannot separate them. The shadow proxy measures darkness near
@@ -1229,7 +1229,7 @@ difficulty ordering is, on the natural reading, not supported by the data.** It
 was an aside rather than a claim under test, and this is not a criticism of the
 paper -- but it is measurable, it was not measured, and it is now.
 
-The size half of their explanation also deserves credit where due: it is real,
+The size half of their explanation also holds: it is real,
 just far smaller than the sentence implies.
 
 ### Open
@@ -1653,7 +1653,7 @@ downstream evaluation can exclude them without reconverting.
 
 ### No spatially blocked split is possible, and that is a finding
 
-Milestone B established blocked splits as the honest way to hold out data. That
+Milestone B established blocked splits as the appropriate way to hold out data. That
 cannot be done here. The rasters carry no CRS and no affine transform --
 rasterio returns the identity matrix for every tile -- and the layout is not
 recoverable from the pixels either.
@@ -1855,7 +1855,7 @@ views. Data diversity, not regularisation.
 schedule with zero decay -- still climbing when training stopped. The
 3000-iteration schedule was chosen from arm A's convergence curve, on a
 configuration that saturates by 1500. A configuration that keeps learning
-deserves a longer one. **The +4.16 is a floor, not the effect size.**
+warrants a longer one. **The +4.16 is a floor, not the effect size.**
 
 ### Limitations
 
@@ -2057,7 +2057,7 @@ public config, it has no site-specific tuning to re-derive, and every failure
 mode is documented somewhere public. Six arms produced one improvement, and that
 improvement was to the data pipeline rather than the model.
 
-### The honest state of the multiclass claim
+### The current state of the multiclass claim
 
 The vision is a multiclass regional tool. What a Chactun-trained model delivers
 today, measured:

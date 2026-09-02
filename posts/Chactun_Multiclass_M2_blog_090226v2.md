@@ -24,7 +24,7 @@ Recovering the merges needs roughly ×1.25 *with the footprint intact*. Small ra
 **Tile boundaries cut structures.** 3,429 of 9,853 instances touch an edge. Platforms therefore *over*count — 2,335 against the 1,996 present in the records, +17% — in the same conversion where buildings undercount. Aguadas diverge further still at 76 against 51, +49%, because they are the largest class and cross tile boundaries most often. Opposite errors on different classes, because platforms are large enough to cross tiles while buildings are small enough to fuse with neighbours. Edge instances are kept, since a half-visible structure is a real detection target, and every annotation carries a flag so an evaluation can exclude them without reconverting.
 ---
 ## Why a spatially blocked split is not possible here
-Milestone B established spatially blocked splits as the honest way to hold out geographic data. Chactún does not support one. The rasters carry no CRS and no affine transform, and the layout is not recoverable from the pixels either.
+Milestone B established spatially blocked splits as the appropriate way to hold out geographic data. Chactún does not support one. The rasters carry no CRS and no affine transform, and the layout is not recoverable from the pixels either.
 **The numbering carries no layout.** Edge correlation across all 2,093 consecutive-ID pairs is 0.291, against a random-pair baseline of 0.291. A sweep of every candidate row width from 2 to 259 is flat at ~0.283, with no spike anywhere.
 **No seams exist at all.** An all-pairs search over 4.38 million ordered pairs, both axes, finds zero pairs that are both reciprocal and z > 8. Best-match z-scores top out at 6.2 and reciprocal matches occur for 4–6% of tiles, which is chance.
 That negative could have been manufactured by per-tile contrast stretching, which would hide a real seam — so that was ruled out separately. Only 34% of tiles are pinned to exactly 0–255 across all bands, and per-tile ranges vary with the terrain, so a shared seam would have survived. The tiles genuinely are not neighbours.
@@ -80,7 +80,7 @@ Measured properly, pooled over all 2,094 tiles (120.6 km², every structure scor
 | 0.50 | 72.8% | 32 | 75.0% | 32 |
 | 0.70 | 67.7% | 23 | 65.1% | 16 |
 
-**AP understates this tool.** Arm D at AP 42.87 recalls 92% of real structures at a low threshold. And its advantage lives exactly where the tool would operate — +7.3 points at score 0.05, +2.2 at 0.50, and at 0.70 it is *worse* than the control. At a matched budget of 100 FP/km² the honest gain is about +3.0 points, not +7.3, since arm D buys some of its recall by emitting more detections.
+**AP understates this tool.** Arm D at AP 42.87 recalls 92% of real structures at a low threshold. And its advantage lives exactly where the tool would operate — +7.3 points at score 0.05, +2.2 at 0.50, and at 0.70 it is *worse* than the control. At a matched budget of 100 FP/km² the like-for-like gain is about +3.0 points, not +7.3, since arm D buys some of its recall by emitting more detections.
 ![Arm D detections on Chactun across five tiles spanning best to worst per-tile F1](figures/chactun_detections_on_chactun.png)
 
 ---
