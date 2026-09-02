@@ -5,10 +5,10 @@ Milestone C of this independent study asked for experience building a multiclass
 The first half is what was assigned: build the detector, then find out what makes it better. The result recovers 92% of annotated structures at a survey-appropriate operating point. Six candidate improvements were tested against it, and the one that worked was a change to the data pipeline rather than to the model — it cost no extra compute and improved every class. The four model-side changes, including the two with the strongest prior arguments, produced nothing measurable.
 The second half was not assigned and produced the more transferable lesson. The trained detector was handed a completely different LiDAR survey and asked to be useful on it. It was not, and the reason had nothing to do with the architecture, the training or the tuning — it lay in what the source dataset does and does not make available. That failure is what identifies the requirements a portable tool would have to meet, and those requirements are the most useful thing this milestone produced.
 ---
-## The dataset, and three ways to ruin it before training starts
+## The dataset, and three properties the conversion has to handle
 Chactún (Somrak, Džeroski & Kokalj, *Scientific Data* 2023, CC BY 4.0) ships 480×480 tiles at 0.5 m, three bands — sky-view factor, positive openness, slope — with annotations as **semantic masks**, one binary raster per class per tile.
-Converting semantic masks into instance annotations is where the damage happens, and three specific things will do it quietly.
-**The masks are inverted.** Object pixels are 0; background is 255. Reading them the obvious way, mask > 0, produces one tile-sized "instance" per class per tile. Training proceeds, the loss decreases, and the model learns nothing. This was caught only because the output was absurd — nothing raised an error.
+Converting semantic masks into instance annotations is where the care is needed, and three properties of this dataset determine the result.
+**The masks are inverted.** Object pixels are 0; background is 255. Reading them the obvious way, mask > 0, produces one tile-sized "instance" per class per tile. Training proceeds and the loss decreases while the model learns nothing, since no error is raised. The inverted polarity was identified by inspecting the converted output rather than by any failure signal.
 **Semantic masks are not instance masks.** Adjacent structures that touch fuse into one connected component. Plain connected components recover 7,442 buildings against the 8,275 the dataset paper reports as present in these tiles — a 10% undercount, entirely from merging. (The often-quoted 9,303 is the count for the whole 130 km² annotated section, not for the 2,094 records, and comparing against it overstates the loss.) A distance-transform watershed was tried to separate them and does not work at any setting:
 | | | | |
 |-|-|-|-|
@@ -23,12 +23,12 @@ Converting semantic masks into instance annotations is where the damage happens,
 Recovering the merges needs roughly ×1.25 *with the footprint intact*. Small radii over-split single structures and halve their size; large radii lose components to peak suppression and converge back to plain components. The undercount stands, documented rather than hidden.
 **Tile boundaries cut structures.** 3,429 of 9,853 instances touch an edge. Platforms therefore *over*count — 2,335 against the 1,996 present in the records, +17% — in the same conversion where buildings undercount. Aguadas fare worse still at 76 against 51, +49%, because they are the largest class and cross tile boundaries most often. Opposite errors on different classes, because platforms are large enough to cross tiles while buildings are small enough to fuse with neighbours. Edge instances are kept, since a half-visible structure is a real detection target, and every annotation carries a flag so an evaluation can exclude them without reconverting.
 ---
-## No spatially blocked split is possible, and that is a finding
+## Why a spatially blocked split is not possible here
 Milestone B established spatially blocked splits as the honest way to hold out geographic data. Chactún cannot take one. The rasters carry no CRS and no affine transform, and the layout is not recoverable from the pixels either.
 **The numbering carries no layout.** Edge correlation across all 2,093 consecutive-ID pairs is 0.291, against a random-pair baseline of 0.291. A sweep of every candidate row width from 2 to 259 is flat at ~0.283, with no spike anywhere.
 **No seams exist at all.** An all-pairs search over 4.38 million ordered pairs, both axes, finds zero pairs that are both reciprocal and z > 8. Best-match z-scores top out at 6.2 and reciprocal matches occur for 4–6% of tiles, which is chance.
 That negative could have been manufactured by per-tile contrast stretching, which would hide a real seam — so that was ruled out separately. Only 34% of tiles are pinned to exactly 0–255 across all bands, and per-tile ranges vary with the terrain, so a shared seam would have survived. The tiles genuinely are not neighbours.
-This is almost certainly deliberate. Publishing precise coordinates for thousands of undocumented Maya structures is a looting risk, and withholding georeferencing is normal practice for unexcavated sites. It is not an oversight to be worked around.
+This is almost certainly deliberate geomasking. Publishing precise coordinates for thousands of undocumented Maya structures is a looting risk, and withholding georeferencing is standard practice for unexcavated sites. It is a protective measure, not an oversight to be worked around.
 The substitute blocks on **appearance**— cluster the tiles, assign whole clusters to one side — and it barely works. Against a random control it moves cross-split similarity from 0.743 to 0.761 (the wrong way), p95 from 0.915 to 0.907, max from 0.978 to 0.954. Only the tail improves. Chactún tiles are homogeneous enough that every validation tile has a near-twin in training under any partition. **Validation scores on this dataset are optimistic however it is cut**, and that belongs in the results rather than a footnote.
 ---
 ## The experiment
@@ -48,7 +48,7 @@ Comparisons are **paired by fold**, because folds differ from each other far mor
 The seed noise floor was measured rather than assumed: fold 0 was run at three seeds per arm for arms A, B and C, giving 0.80–1.39 sd on segmentation AP.
 Two predictions were written into the configs *before* the runs, so they could not be reasoned backwards afterwards.
 ---
-## What moved, and what didn't
+## Results across the six arms
 | | | | |
 |-|-|-|-|
 | **arm**|**segm AP**|**vs control**|**verdict** |
@@ -85,7 +85,7 @@ Measured properly, pooled over all 2,094 tiles (120.6 km², every structure scor
 
 ---
 ---
-## One class the input cannot express
+## Aguadas: a class the input bands do not carry
 Aguadas — Maya water reservoirs — score 26–30 pooled, far below building and platform, and nothing moved them significantly. The reason is not scarcity, though there are only 76.
 Measured against unannotated terrain, mean band values inside each class:
 | | | | |
