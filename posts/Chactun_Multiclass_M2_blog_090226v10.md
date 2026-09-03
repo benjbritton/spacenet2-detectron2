@@ -57,7 +57,7 @@ That measurement is itself the finding. Chactún tiles resemble one another clos
 
 ## The experiment
 
-Five cluster-blocked folds, chosen over a single held-out split for a specific reason: aguada has 76 instances in the entire dataset, so one split would evaluate about fifteen of them — too small a validation sample to support a stable estimate for that class. Across five folds every instance is evaluated exactly once.
+Five cluster-blocked folds (data partitions for cross-validation), chosen over a single held-out split for a specific reason: aguada has 76 instances in the entire dataset, so one split would evaluate about fifteen of them — too small a validation sample to support a stable estimate for that class. Across five folds every instance is evaluated exactly once.
 
 Six arms, each differing from its neighbor by one thing:
 
