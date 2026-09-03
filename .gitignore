@@ -35,6 +35,9 @@ __pycache__/
 *.egg-info/
 .ipynb_checkpoints/
 
+# Vendored wheels for the host-side doc tools (cp311, unpacked).
+.pylibs
+
 # Editors and OS
 .vscode/
 .idea/
@@ -48,17 +51,26 @@ desktop.ini
 
 # Office / editor lock and temp files. An ONLYOFFICE lock file reached a
 # commit on 2026-08-30 carrying username, hostname and a local path.
+# NOTE: the backup-file rule is `*~`, not `~`. A bare `~` matches only a file
+# literally named "~" and let every editor backup through.
 .~lock.*#
-~
+*~
 *.tmp
 
-# Generated figures. Scripts write here; only the copies referenced by a post
-# are tracked, under posts/figures/, so an image is never stored twice.
-figures/
-.pylibs
+# Generated figures. Scripts write into the repo-root figures/ directory; only
+# the copies referenced by a post are tracked, under posts/figures/.
+# NOTE: this rule is anchored with a leading slash on purpose. Unanchored,
+# `figures/` matches a directory of that name at ANY depth, which silently
+# ignored posts/figures/ too -- so a newly added figure would never have been
+# committed and the post would render with a missing image. outputs/figures/
+# is already covered by outputs/ above.
+/figures/
 
 # Intermediate drafts of posts. Only the current version of each post is
-# tracked; earlier drafts stay on disk and in git history.
-posts/*v[2-9].md
-posts/*v[2-9].html
-posts/*v[2-9].docx
+# tracked; earlier drafts stay on disk and in git history. Add the current one
+# explicitly with `git add -f`.
+# NOTE: the version class is `[0-9]*`, not `[2-9]`. The old rule stopped
+# matching at v9, so v10 was tracked by accident rather than by decision.
+posts/*v[0-9]*.md
+posts/*v[0-9]*.html
+posts/*v[0-9]*.docx
