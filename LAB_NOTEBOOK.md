@@ -2286,3 +2286,78 @@ under the 0.707 floor.
 - Threshold sweeps: `semantic_iou_sweep.json` in each of those directories;
   null baseline at `outputs/chactun_semantic_iou_null.json`
 - Run log: `outputs/canonical_train.log`
+
+
+## 2026-09-03 - Prediction, recorded before running grayscale seeds 1 and 2
+
+The grayscale ablation has one seed against a three-seed colour baseline. Every
+quoted sigma for it is therefore borrowed from the colour arm. Seeds 1 and 2 are
+being run now, matching the colour baseline's seeds exactly, to give the arm its
+own spread.
+
+**This entry is written and committed before the runs start**, for the same
+reason the original ablation's prediction was: so the result cannot be reasoned
+backwards afterwards.
+
+### What is being run
+
+    ./scripts/run.sh python scripts/train_spacenet.py --grayscale --seed 1 \
+        --output outputs/spacenet2_r50fpn_gray_seed1 \
+        --run-name spacenet2-r50fpn-seed1-GRAYSCALE
+
+and the same at `--seed 2`. Sequential, not parallel: the colour arm was run one
+at a time and contention would make the timing unpredictable. Nothing else
+changes.
+
+### The baseline this is measured against
+
+At the fixed 0.544 threshold, from the 2026-08-28 entry:
+
+| | colour, 3 seeds | grayscale, 1 seed | delta | sigma (colour's) |
+|---|---|---|---|---|
+| segm AP | 49.504 +/- 0.088 | 49.179 | -0.325 | 3.7 |
+| pooled F1 | 0.7942 +/- 0.0010 | 0.7904 | -0.0038 | 3.8 |
+
+### Predictions
+
+1. **Grayscale pooled F1 lands near 0.7904 with sd of the same order as
+   colour's 0.0010** -- called as 0.0005 to 0.0020. There is no mechanism that
+   would make the grayscale arm noisier; it sees strictly less input variation.
+   If its sd comes out above 0.0030 that is unexpected and worth chasing rather
+   than reporting.
+
+2. **The pooled delta stays negative and small, between -0.003 and -0.005.**
+
+3. **Its significance drops but survives.** The 3.8 sigma above divides by the
+   colour sd alone. A proper two-sample comparison with three seeds a side is
+   less generous, so the sigma count should fall -- called as landing between
+   2 and 4, still separated from zero. If it falls below 2, the correct
+   conclusion is that the pooled delta was never established either, and the
+   entry has to say so.
+
+4. **Shanghai survives, smaller than -0.008.** Per-city seed noise on the colour
+   arm is 0.001 to 0.0025; Shanghai's single-seed -0.008 is three times that, so
+   it is called as real, landing between -0.004 and -0.008. This is the one
+   substantive open question here. Shanghai is the city whose chroma the stretch
+   amplified most (5.0 -> 63.7 degrees), so a real loss there is the only
+   mechanism-shaped residue inside an otherwise flat result.
+
+5. **Vegas, Paris and Khartoum stay within +/- 0.003 and remain unestablished.**
+
+6. **The headline does not move.** Hue was predicted to close the
+   Vegas-Khartoum gap by ~42.7% if causal; it closed it by 0.4%. No seed spread
+   bridges that. If these two runs change the conclusion that chroma is not the
+   mechanism, something is wrong with the runs, not with the conclusion.
+
+### What each outcome means
+
+- Predictions 1-5 hold: the limitation closes, the arm becomes symmetric with
+  the colour baseline, and Shanghai becomes a stated small finding rather than
+  an unestablished aside.
+- Shanghai does not survive: the entry loses its one micro-result and the
+  "chroma is inert" reading gets simpler. That is a cleaner outcome, not a worse
+  one.
+- Grayscale sd comes out much wider than colour's: the -0.0038 delta stops being
+  significant, and the "about 4 sigma" phrasing in the notebook, REPRODUCE.md
+  and the Milestone B post all have to come out. This is the outcome that costs
+  the most to write up, and it is the reason for recording the prediction.
