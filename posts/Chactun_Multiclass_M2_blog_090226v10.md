@@ -159,7 +159,7 @@ The cause is a property of the visualization choice. Sky-view factor, positive o
 
 ---
 
-So the class is not underlearned. It is unrepresented. That distinction matters, because more examples would not have fixed it and a different band would.
+So the class is not underlearned. It is unrepresented — the Chactún dataset omits any visualization band that explicitly highlights terrain concavity. That distinction matters, because more examples would not have fixed it and a different band would.
 
 ---
 
