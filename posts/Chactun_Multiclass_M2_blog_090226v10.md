@@ -227,7 +227,7 @@ Arm D (D4 dihedral augmentation) worked by augmenting over a property the model 
 
 Portability follows the exact same logic, swapping orientation for visualization style. A mound is a mound whichever rendering recipe created it.
 
-Training on the same terrain rendered many different ways—different stretches, visualizations, and blends—would teach the model to key on the shape of the relief signature rather than on one rendering’s byte patterns. That removes the need for every user to adopt a single pipeline.
+Training on the same terrain rendered many different ways—different stretches, visualizations, and blends—would teach the model to key on the shape of the relief signature rather than on one rendering’s byte patterns. That would let the detector operate across datasets produced by heterogeneous processing pipelines without retraining.
 
 Testing it would require holding out a **rendering**, not merely a set of tiles. Otherwise the experiment measures in-domain accuracy and says nothing about robustness.
 
