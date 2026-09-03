@@ -199,11 +199,11 @@ And the stretch function cannot be recovered. Verified against the deposit's fil
 
 The pipeline therefore faces three distinct dataset limitations, none of them reversible from the released data:
 
-- **No elevation data**, so the visualizations cannot be regenerated
-- **8-bit only**, so the float values are quantized away and cannot be recovered at precision
-- **Three visualization types**, committed to at deposit time — no hillshade, no local relief model, and no negative openness, which is precisely what the aguada class needed
+- **No source elevation data.** Without the raw DEM or DTM, alternative spatial visualizations cannot be regenerated downstream.
+- **Quantized 8-bit rendering.** The three visualization rasters were truncated from float precision at export time, so fine gradients within sky-view factor, positive openness and slope cannot be recovered.
+- **Fixed visualization selection.** The deposit committed permanently to three specific bands, omitting hillshading, local relief models, and negative openness — the precise diagnostic channel required to resolve terrain concavity (aguadas).
 
-In short: restricted access to the underlying LiDAR recordings. The deposit sits several lossy steps from the source measurement, and a model trained at the end of that chain inherits every restriction with no way to undo any of them.
+In short, the deposit sits several lossy steps downstream from the original LiDAR point cloud. A model trained at the end of that processing chain inherits every upstream constraint, with no mechanism to recover the lost spatial signal.
 
 **A detector is only as portable as the recipe for its input.** To run a Chactún-trained model on new terrain, that terrain has to be turned into the same kind of raster the model saw in training — same visualizations, same value range, same byte mapping. Chactún supplies none of what that requires: no elevation data to generate visualizations from, no float values, and no record of the function that mapped physical quantities onto 0–255. The recipe cannot be reconstructed, so the input cannot be reproduced, so the model cannot be applied. This is a property of the dataset rather than of Mask R-CNN, and it would hold for any architecture trained on it.
 
