@@ -199,9 +199,9 @@ And the stretch function cannot be recovered. Verified against the deposit's fil
 
 The pipeline therefore faces three distinct dataset limitations, none of them reversible from the released data:
 
-- **No source elevation data.** Without the raw DEM or DTM, alternative spatial visualizations cannot be regenerated downstream.
-- **Quantized 8-bit rendering.** The three visualization rasters were truncated from float precision at export time, so fine gradients within sky-view factor, positive openness and slope cannot be recovered.
-- **Fixed visualization selection.** The deposit committed permanently to three specific bands, omitting hillshading, local relief models, and negative openness — the precise diagnostic channel required to resolve terrain concavity (aguadas).
+1. **No source elevation data.** Without the underlying DEM or DTM, alternative spatial visualizations cannot be regenerated downstream.
+2. **Quantized 8-bit visualization exports.** Floating-point arrays for sky-view factor, openness, and slope were permanently truncated to 8-bit integers at export, destroying fine continuous variance across those derived features.
+3. **Fixed visualization selection.** The deposit committed permanently to three specific bands, omitting hillshading, local relief models, and negative openness — the precise diagnostic channel required to resolve terrain concavity (aguadas).
 
 In short, the deposit sits several lossy steps downstream from the original LiDAR point cloud. A model trained at the end of that processing chain inherits every upstream constraint, with no mechanism to recover the lost spatial signal.
 
