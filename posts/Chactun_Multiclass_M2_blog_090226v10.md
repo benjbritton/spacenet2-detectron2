@@ -153,7 +153,7 @@ Measured against unannotated terrain, mean band values inside each class:
 
 ---
 
-The cause is a property of the visualization choice. Sky-view factor, positive openness and slope all emphasize **raised**features; positive openness in particular highlights convex forms. Buildings and platforms are raised structures, so they light up.**An aguada is a depression, and the diagnostic visualization for concavity is *****negative*****openness — which this dataset does not ship.**
+The cause is a property of the visualization choice. Sky-view factor, positive openness, and slope all emphasize raised features; positive openness in particular highlights convex forms. Buildings and platforms are raised structures, so they light up. An aguada is a depression, and the diagnostic visualization for concavity is negative openness — which the Chactún dataset does not ship, nor could it be generated, as the source DEM was withheld from the release.**
 
 ![Band value distributions: aguada overlaps the background, building does not](figures/chactun_band_separability.png)
 
