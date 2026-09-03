@@ -101,9 +101,9 @@ That closes the scale family. Object scale can bind through the anchors that pro
 
 Its validity rests on a property of the bands. Sky-view factor, positive openness and slope are computed **isotropically**, so rotating them is label-preserving. Rotating a **hillshade**would not be — a fixed illumination azimuth is baked into the pixels, and the rotated image depicts terrain lit from an angle it never was. The field's most common visualization would have blocked the only intervention that worked here. D4 rather than arbitrary rotation also preserves the cardinal alignment common in Maya architecture, and on square tiles np.rot90 is exact where an affine warp would blur 25 px buildings.
 
-The transforms were verified label-preserving rather than assumed: rasterise a tile's polygons, rotate that raster, and compare against the same polygons pushed through the coordinate transform. IoU 1.0000 for all four rotations. A rotation that moves pixels but not coordinates trains silently with every label detached from its object, and nothing downstream flags it.
+The transforms were verified label-preserving rather than assumed: rasterize a tile's polygons, rotate that raster, and compare against the same polygons pushed through the coordinate transform. IoU 1.0000 for all four rotations. A rotation that moves pixels but not coordinates trains silently with every label detached from its object, and nothing downstream flags it.
 
-**The trajectories refine the explanation.**Regularisation would predict the baseline peaks early and decays. It does decay — but only 1.18 on building, against a 4.91 gain, so it accounts for at most a quarter. The trajectories show the arms identical through iteration 1500, after which the baseline stops improving and arm D does not. The baseline * exhausts* what 1,669 tiles can teach it; D4 keeps finding new information because each epoch presents genuinely different views. That also implies arm D was still climbing when training stopped, so +4.16 is a floor rather than the effect size.
+**The trajectories refine the explanation.**Regularization would predict the baseline peaks early and decays. It does decay — but only 1.18 on building, against a 4.91 gain, so it accounts for at most a quarter. The trajectories show the arms identical through iteration 1500, after which the baseline stops improving and arm D does not. The baseline * exhausts* what 1,669 tiles can teach it; D4 keeps finding new information because each epoch presents genuinely different views. That also implies arm D was still climbing when training stopped, so +4.16 is a floor rather than the effect size.
 
 ---
 
@@ -244,7 +244,7 @@ Two milestones, and the same pattern in both. In Milestone B, four candidate mec
 
 What the milestone establishes, as distinct from what it reports:
 
-- **A three-class detector at 92% recall**, with its error modes separated per class into detection failure versus classification failure, and its operating characteristics measured as recall against false positives per km² rather than as AP alone.
+- **A three-class detector at 92% recall**, with its error modes separated per class into detection failure versus classification failure, and its operating characteriztics measured as recall against false positives per km² rather than as AP alone.
 - **A measurement ceiling for the dataset itself**— how much of COCO AP the annotation precision can actually support, which turns out to be about half the threshold range for the dominant class.
 - **A resolution envelope of roughly 0.33–1 m**, decomposed into the part attributable to object scale and the part to information loss, with ground-extent tiling identified as recovering about two-thirds of the penalty.
 - **A portability constraint with a diagnosed cause**, established by external evaluation rather than inferred.
