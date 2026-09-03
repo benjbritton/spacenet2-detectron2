@@ -197,7 +197,7 @@ Band **statistics**were matched — each band rescaled so its valid pixels carri
 
 And the stretch function cannot be recovered. Verified against the deposit's file list, Chactún provides ML-ready visualizations, masks, a canopy height model, and Sentinel-1/2 imagery, but no DEM, no DTM, and no point cloud data.
 
-That is three restrictions, each irreversible:
+The pipeline therefore faces three distinct dataset limitations, none of them reversible from the released data:
 
 - **No elevation data**, so the visualizations cannot be regenerated
 - **8-bit only**, so the float values are quantized away and cannot be recovered at precision
