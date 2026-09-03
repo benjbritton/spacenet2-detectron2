@@ -97,7 +97,7 @@ Two predictions were written into the configs *before* the runs, so they could n
 
 That closes the scale family. Object scale can bind through the anchors that propose regions or the features that characterize them. Neither does.
 
-**D4 augmentation produced the one measurable gain**, and it improved every class: +4.16 segm AP (t = 7.94), AP75 +5.89, building +4.91, platform +4.77, small objects +2.95. All five folds positive. Across roughly 42 tests in this milestone a Bonferroni threshold sits near 0.0012, and arm D's core results survive it while every marginal finding does not.
+**D4 data augmentation produced the one measurable gain**, and it improved every class. D4 is the set of eight symmetries of a square — horizontal and vertical flips, and rotations of 90°, 180° and 270° — so each training tile is presented in all eight orientations rather than one: +4.16 segm AP (t = 7.94), AP75 +5.89, building +4.91, platform +4.77, small objects +2.95. All five folds positive. Across roughly 42 tests in this milestone a Bonferroni threshold sits near 0.0012, and arm D's core results survive it while every marginal finding does not.
 
 Its validity rests on a property of the bands. Sky-view factor, positive openness and slope are computed **isotropically**, so rotating them is label-preserving. Rotating a **hillshade**would not be — a fixed illumination azimuth is baked into the pixels, and the rotated image depicts terrain lit from an angle it never was. The field's most common visualization would have blocked the only intervention that worked here. D4 rather than arbitrary rotation also preserves the cardinal alignment common in Maya architecture, and on square tiles np.rot90 is exact where an affine warp would blur 25 px buildings.
 
