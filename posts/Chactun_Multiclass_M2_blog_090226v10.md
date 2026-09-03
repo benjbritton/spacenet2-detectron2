@@ -6,7 +6,7 @@
 
 Milestone C of this independent study asked for experience building a multiclass object detector from a provided dataset. The dataset was Chactún — 2,094 tiles of airborne laser scanning over 120.6 km² of the central Yucatán Peninsula, annotated for three classes of ancient Maya feature. The work divides cleanly in two.
 
-The first half is what was assigned: build the detector, then establish what improves it. The detector recovers **92% of annotated structures**at a survey-appropriate operating point. Six candidate improvements were then tested against it under five-fold cross-validation — 36 training runs, paired comparisons, a measured seed-noise floor and multiple-comparison correction. One produced a replicated gain of**+4.16 AP** across every class and every fold, and it came from the data pipeline rather than the model, at no additional compute. The four model-side candidates came in within noise, which locates the remaining headroom: not in the architecture.
+The first half is what was assigned: build the detector, then establish what improves it. The detector recovers **92% of annotated structures** at a survey-appropriate operating point. Six candidate improvements were then tested against it under five-fold cross-validation — 36 training runs, paired comparisons, a measured seed-noise floor and multiple-comparison correction. One produced a replicated gain of **+4.16 AP** across every class and every fold, and it came from the data pipeline rather than the model, at no additional compute. The four model-side candidates came in within noise, which locates the remaining headroom: not in the architecture.
 
 The second half was not assigned. The detector was taken to a different LiDAR survey — different sensor, processing chain and resolution — and evaluated there. It did not transfer, and the diagnosis is the substantive result: the constraint is not architectural but lies in what the source dataset makes available. Establishing that required measuring resolution sensitivity, decomposing it into scale and detail, and reconstructing the input representation from a second data source. The requirements a portable tool must satisfy fall directly out of that measurement, and they are the most transferable output of the milestone.
 
@@ -14,7 +14,7 @@ The second half was not assigned. The detector was taken to a different LiDAR su
 
 ## The dataset, and three properties the conversion has to handle
 
-Chactún (Kokalj et al., *Scientific Data*10:558, 2023, CC BY 4.0) ships 480×480 tiles at 0.5 m, three bands — sky-view factor, positive openness, slope — with annotations as**semantic masks**, one binary raster per class per tile.
+Chactún (Kokalj et al., *Scientific Data*10:558, 2023, CC BY 4.0) ships 480×480 tiles at 0.5 m, three bands — sky-view factor, positive openness, slope — with annotations as **semantic masks**, one binary raster per class per tile.
 
 Converting semantic masks into instance annotations is the step that determines what the model can learn, and three properties of this dataset govern the result.
 
@@ -33,7 +33,7 @@ Converting semantic masks into instance annotations is the step that determines 
 
 Recovering the merges needs roughly ×1.25 *with the footprint intact*. Small radii over-split single structures and halve their size; large radii lose components to peak suppression and converge back to plain components. The undercount stands, documented rather than hidden.
 
-**Tile boundaries cut structures.**3,429 of 9,853 instances touch an edge. Platforms therefore *over*count — 2,335 against the 1,996 present in the records, +17% — in the same conversion where buildings undercount. Aguadas diverge further still at 76 against 51, +49%, because they are the largest class and cross tile boundaries most often. Opposite errors on different classes, because platforms are large enough to cross tiles while buildings are small enough to fuse with neighbors. Edge instances are kept, since a half-visible structure is a real detection target, and every annotation carries a flag so an evaluation can exclude them without reconverting.
+**Tile boundaries cut structures.** 3,429 of 9,853 instances touch an edge. Platforms therefore *over*count — 2,335 against the 1,996 present in the records, +17% — in the same conversion where buildings undercount. Aguadas diverge further still at 76 against 51, +49%, because they are the largest class and cross tile boundaries most often. Opposite errors on different classes, because platforms are large enough to cross tiles while buildings are small enough to fuse with neighbors. Edge instances are kept, since a half-visible structure is a real detection target, and every annotation carries a flag so an evaluation can exclude them without reconverting.
 
 ---
 
@@ -93,17 +93,17 @@ Two predictions were written into the configs *before* the runs, so they could n
 
 **Cascade confirmed a predicted pattern at an irrelevant magnitude.** The prediction on record was AP50 within noise, AP75 favoring cascade, AP(0.5:0.95) favoring it partly spuriously. Observed: AP50 −0.36, AP75 +2.23, segm AP +0.68. The pattern held; nothing reached significance; it costs 27% more compute per run.
 
-**Resolution is ruled out as well, and the effect runs counter to the prediction.**Arm B ruled out giving small objects* anchors*; arm F tested giving them *features*, which is a different mechanism — at stride 4, a 25 px building covers about 6 feature cells natively and about 12 at double scale. Two competing predictions were recorded in the config beforehand, +1.5 to +3.0 against +0 to +1.5. The result was **+0.10**, and small-object AP went *down* by 0.71. Both predictions agreed that a genuine resolution effect had to appear in AP75 and small-object AP rather than AP50; it appeared in neither. The effect runs opposite to the prediction, so the mechanism is ruled out on direction as well as magnitude.
+**Resolution is ruled out as well, and the effect runs counter to the prediction.** Arm B ruled out giving small objects* anchors*; arm F tested giving them *features*, which is a different mechanism — at stride 4, a 25 px building covers about 6 feature cells natively and about 12 at double scale. Two competing predictions were recorded in the config beforehand, +1.5 to +3.0 against +0 to +1.5. The result was **+0.10**, and small-object AP went *down* by 0.71. Both predictions agreed that a genuine resolution effect had to appear in AP75 and small-object AP rather than AP50; it appeared in neither. The effect runs opposite to the prediction, so the mechanism is ruled out on direction as well as magnitude.
 
 That closes the scale family. Object scale can bind through the anchors that propose regions or the features that characterize them. Neither does.
 
 **D4 data augmentation produced the one measurable gain**, and it improved every class. D4 is the set of eight symmetries of a square — horizontal and vertical flips, and rotations of 90°, 180° and 270° — so each training tile is presented in all eight orientations rather than one: +4.16 segm AP (t = 7.94), AP75 +5.89, building +4.91, platform +4.77, small objects +2.95. All five folds positive. Across roughly 42 tests in this milestone a Bonferroni threshold sits near 0.0012, and arm D's core results survive it while every marginal finding does not.
 
-Its validity rests on a property of the bands. Sky-view factor, positive openness and slope are computed **isotropically**, so rotating them is label-preserving. Rotating a **hillshade**would not be — a fixed illumination azimuth is baked into the pixels, and the rotated image depicts terrain lit from an angle it never was. The field's most common visualization would have blocked the only intervention that worked here. D4 rather than arbitrary rotation also preserves the cardinal alignment common in Maya architecture, and on square tiles np.rot90 is exact where an affine warp would blur 25 px buildings.
+Its validity rests on a property of the bands. Sky-view factor, positive openness and slope are computed **isotropically**, so rotating them is label-preserving. Rotating a **hillshade** would not be — a fixed illumination azimuth is baked into the pixels, and the rotated image depicts terrain lit from an angle it never was. The field's most common visualization would have blocked the only intervention that worked here. D4 rather than arbitrary rotation also preserves the cardinal alignment common in Maya architecture, and on square tiles np.rot90 is exact where an affine warp would blur 25 px buildings.
 
 The transforms were verified label-preserving rather than assumed: rasterize a tile's polygons, rotate that raster, and compare against the same polygons pushed through the coordinate transform. IoU 1.0000 for all four rotations. A rotation that moves pixels but not coordinates trains silently with every label detached from its object, and nothing downstream flags it.
 
-**The trajectories refine the explanation.**Regularization would predict the baseline peaks early and decays. It does decay — but only 1.18 on building, against a 4.91 gain, so it accounts for at most a quarter. The trajectories show the arms identical through iteration 1500, after which the baseline stops improving and arm D does not. The baseline* exhausts* what 1,669 tiles can teach it; D4 keeps finding new information because each epoch presents genuinely different views. That also implies arm D was still climbing when training stopped, so +4.16 is a floor rather than the effect size.
+**The trajectories refine the explanation.** Regularization would predict the baseline peaks early and decays. It does decay — but only 1.18 on building, against a 4.91 gain, so it accounts for at most a quarter. The trajectories show the arms identical through iteration 1500, after which the baseline stops improving and arm D does not. The baseline* exhausts* what 1,669 tiles can teach it; D4 keeps finding new information because each epoch presents genuinely different views. That also implies arm D was still climbing when training stopped, so +4.16 is a floor rather than the effect size.
 
 ---
 
@@ -153,7 +153,7 @@ Measured against unannotated terrain, mean band values inside each class:
 
 ---
 
-The cause is a property of the visualization choice. Sky-view factor, positive openness, and slope all emphasize raised features; positive openness in particular highlights convex forms. Buildings and platforms are raised structures, so they light up. An aguada is a depression, and the diagnostic visualization for concavity is negative openness — which the Chactún dataset does not ship, nor could it be generated, as the source DEM was withheld from the release.**
+The cause is a property of the visualization choice. Sky-view factor, positive openness, and slope all emphasize raised features; positive openness in particular highlights convex forms. Buildings and platforms are raised structures, so they light up. An aguada is a depression, and the diagnostic visualization for concavity is negative openness — which the Chactún dataset does not ship, nor could it be generated, as the source DEM was withheld from the release.
 
 ![Band value distributions: aguada overlaps the background, building does not](figures/chactun_band_separability.png)
 
@@ -193,7 +193,7 @@ Neither produced useful detections on review. The composite "found buildings a l
 
 The second run — sky-view factor, positive openness and slope regenerated with RVT and restacked into Chactún's channel order — scored *below* the unmodified G1 composite it was built to improve on. That inversion is what identifies the constraint, because the reconstruction was the attempt to give the model the representation it was trained on.
 
-Band **statistics**were matched — each band rescaled so its valid pixels carried Chactún's mean and standard deviation — rather than the stretch**function**. Sky-view factor is physically bounded 0 to 1. If Chactún mapped that range to bytes by some fixed function, the correct move is to apply that identical function. Recentering the distribution instead assigns *different byte values to the same physical quantity*, so the model received a third representation rather than the training one.
+Band **statistics** were matched — each band rescaled so its valid pixels carried Chactún's mean and standard deviation — rather than the stretch **function**. Sky-view factor is physically bounded 0 to 1. If Chactún mapped that range to bytes by some fixed function, the correct move is to apply that identical function. Recentering the distribution instead assigns *different byte values to the same physical quantity*, so the model received a third representation rather than the training one.
 
 And the stretch function cannot be recovered. Verified against the deposit's file list, Chactún provides ML-ready visualizations, masks, a canopy height model, and Sentinel-1/2 imagery, but no DEM, no DTM, and no point cloud data.
 
@@ -250,7 +250,7 @@ Two milestones, and the same pattern in both. In Milestone B, four candidate mec
 
 What the milestone establishes, as distinct from what it reports:
 
-- **A three-class detector at 92% recall**, with its error modes separated per class into detection failure versus classification failure, and its operating characteriztics measured as recall against false positives per km² rather than as AP alone.
+- **A three-class detector at 92% recall**, with its error modes separated per class into detection failure versus classification failure, and its operating characteristics measured as recall against false positives per km² rather than as AP alone.
 - **A measurement ceiling for the dataset itself**— how much of COCO AP the annotation precision can actually support, which turns out to be about half the threshold range for the dominant class.
 - **A resolution envelope of roughly 0.33–1 m**, decomposed into the part attributable to object scale and the part to information loss, with ground-extent tiling identified as recovering about two-thirds of the penalty.
 - **A portability constraint with a diagnosed cause**, established by external evaluation rather than inferred.
