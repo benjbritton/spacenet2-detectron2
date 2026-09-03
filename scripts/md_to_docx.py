@@ -13,26 +13,68 @@ import re
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Inches, Pt, RGBColor
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
 
-INLINE = re.compile(r"(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)")
+INLINE = re.compile(
+    r"(\[[^\]]+\]\([^)\s]+\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)"
+)
+LINK = re.compile(r"^\[([^\]]+)\]\(([^)\s]+)\)$")
 
 
-def add_runs(par, text):
-    """Render bold, italic and code spans as runs."""
+def _style(run, bold, italic, code):
+    if bold:
+        run.bold = True
+    if italic:
+        run.italic = True
+    if code:
+        run.font.name = "Consolas"
+        run.font.size = Pt(9.5)
+
+
+def add_hyperlink(par, url, text, bold, italic):
+    """Add an external hyperlink, keeping any emphasis inside its text.
+
+    python-docx has no hyperlink API, so the relationship and the w:hyperlink
+    element are built directly. The runs are created on the paragraph first and
+    then moved inside the element, which keeps them in document order because
+    the element is appended at the point the link is reached.
+    """
+    r_id = par.part.relate_to(url, RT.HYPERLINK, is_external=True)
+    hyper = OxmlElement("w:hyperlink")
+    hyper.set(qn("r:id"), r_id)
+
+    first = len(par.runs)
+    add_runs(par, text, bold=bold, italic=italic)
+    for run in par.runs[first:]:
+        run.font.color.rgb = RGBColor(0x0B, 0x57, 0xD0)
+        run.font.underline = True
+        hyper.append(run._r)
+    par._p.append(hyper)
+
+
+def add_runs(par, text, bold=False, italic=False, code=False):
+    """Render links, bold, italic and code spans as runs.
+
+    Each branch recurses on the stripped text rather than emitting it directly,
+    so nesting works: a link inside bold, or an italic title inside a link.
+    """
     for piece in INLINE.split(text):
         if not piece:
             continue
-        if piece.startswith("**") and piece.endswith("**"):
-            par.add_run(piece[2:-2]).bold = True
+        m = LINK.match(piece)
+        if m:
+            add_hyperlink(par, m.group(2), m.group(1), bold, italic)
+        elif piece.startswith("**") and piece.endswith("**"):
+            add_runs(par, piece[2:-2], True, italic, code)
         elif piece.startswith("*") and piece.endswith("*"):
-            par.add_run(piece[1:-1]).italic = True
+            add_runs(par, piece[1:-1], bold, True, code)
         elif piece.startswith("`") and piece.endswith("`"):
-            r = par.add_run(piece[1:-1])
-            r.font.name = "Consolas"
-            r.font.size = Pt(9.5)
+            _style(par.add_run(piece[1:-1]), bold, italic, True)
         else:
-            par.add_run(piece)
+            _style(par.add_run(piece), bold, italic, code)
 
 
 def cells(line):

@@ -14,7 +14,7 @@ The second half was not assigned. The detector was taken to a different LiDAR su
 
 ## The dataset, and three properties the conversion has to handle
 
-Chactún (Kokalj et al., *Scientific Data*10:558, 2023, CC BY 4.0) ships 480×480 tiles at 0.5 m, three bands — sky-view factor, positive openness, slope — with annotations as **semantic masks**, one binary raster per class per tile.
+Chactún ([Kokalj et al., *Scientific Data* 10:558, 2023](https://doi.org/10.1038/s41597-023-02455-x), CC BY 4.0, [figshare](https://doi.org/10.6084/m9.figshare.22202395)) ships 480×480 tiles at 0.5 m, three bands — sky-view factor, positive openness, slope — with annotations as **semantic masks**, one binary raster per class per tile.
 
 Converting semantic masks into instance annotations is the step that determines what the model can learn, and three properties of this dataset govern the result.
 
@@ -33,7 +33,7 @@ Converting semantic masks into instance annotations is the step that determines 
 
 Recovering the merges needs roughly ×1.25 *with the footprint intact*. Small radii over-split single structures and halve their size; large radii lose components to peak suppression and converge back to plain components. The undercount stands, documented rather than hidden.
 
-**Tile boundaries cut structures.** 3,429 of 9,853 instances touch an edge. Platforms therefore *over*count — 2,335 against the 1,996 present in the records, +17% — in the same conversion where buildings undercount. Aguadas diverge further still at 76 against 51, +49%, because they are the largest class and cross tile boundaries most often. Opposite errors on different classes, because platforms are large enough to cross tiles while buildings are small enough to fuse with neighbors. Edge instances are kept, since a half-visible structure is a real detection target, and every annotation carries a flag so an evaluation can exclude them without reconverting.
+**Tile boundaries cut structures.** 3,429 of 9,853 instances touch an edge. Platforms therefore *over* count — 2,335 against the 1,996 present in the records, +17% — in the same conversion where buildings undercount. Aguadas diverge further still at 76 against 51, +49%, because they are the largest class and cross tile boundaries most often. Opposite errors on different classes, because platforms are large enough to cross tiles while buildings are small enough to fuse with neighbors. Edge instances are kept, since a half-visible structure is a real detection target, and every annotation carries a flag so an evaluation can exclude them without reconverting.
 
 ---
 
@@ -217,7 +217,7 @@ What follows was not part of the assigned work, and nothing here was built or te
 
 It is recorded as a design specification derived from the result above. Given what was measured, these are the properties a portable regional tool would need to satisfy, and the reasoning that produces each one.
 
-The derivation runs: *the model did not transfer*→* because its input representation could not be reproduced*→* therefore portability requires either a reproducible input specification, or a model indifferent to the representation it is given.*
+The derivation runs: *the model did not transfer* →* because its input representation could not be reproduced* →* therefore portability requires either a reproducible input specification, or a model indifferent to the representation it is given.*
 
 The first route is straightforward and constraining — publish the recipe and require every user to run it.
 
@@ -268,6 +268,12 @@ And the methodological findings:
 
 ## Reproducing this
 
-Everything is in the repository. src/detlab/datasets/masks_to_coco.py converts the semantic masks, with all three properties and the watershed sweep and its outcome documented in its docstring. scripts/make_chactun_split.py builds the folds and measures the leak. scripts/train_chactun.py runs any arm on any fold at any seed, and scripts/run_chactun_matrix.sh runs the full matrix. The evidence for the negative results has its own scripts — chactun_layout.py and chactun_seams.py for the missing geography, chactun_headroom.py for the measurement ceiling, chactun_scale_sensitivity.py for the resolution curve, chactun_operating_point.py for recall against false positives per km².
+Code, configurations and the full lab notebook are in the repository: **[benjbritton/spacenet2-detectron2](https://github.com/benjbritton/spacenet2-detectron2)**. All 39 training runs, with their metrics and configurations, are logged at **[wandb.ai/benjbritton-geoai/benjbritton_FA26](https://wandb.ai/benjbritton-geoai/benjbritton_FA26)**.
 
-The lab notebook carries the full record, including the predictions the data refuted and the explanations it revised.
+The dataset is Chactún, [Kokalj et al. 2023](https://doi.org/10.1038/s41597-023-02455-x), CC BY 4.0, available from [figshare](https://doi.org/10.6084/m9.figshare.22202395).
+
+Within the repository: `src/detlab/datasets/masks_to_coco.py` converts the semantic masks, with all three dataset properties and the watershed sweep and its outcome documented in its docstring. `scripts/make_chactun_split.py` builds the folds and measures the leak. `scripts/train_chactun.py` runs any arm on any fold at any seed, and `scripts/run_chactun_matrix.sh` runs the full matrix.
+
+Each negative result has its own script, so the evidence can be re-run rather than taken on trust: `chactun_layout.py` and `chactun_seams.py` for the missing geography, `chactun_headroom.py` for the measurement ceiling, `chactun_scale_sensitivity.py` for the resolution curve, and `chactun_operating_point.py` for recall against false positives per km².
+
+`LAB_NOTEBOOK.md` carries the full record, including the predictions the data refuted and the explanations it revised.

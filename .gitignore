@@ -56,3 +56,9 @@ desktop.ini
 # are tracked, under posts/figures/, so an image is never stored twice.
 figures/
 .pylibs
+
+# Intermediate drafts of posts. Only the current version of each post is
+# tracked; earlier drafts stay on disk and in git history.
+posts/*v[2-9].md
+posts/*v[2-9].html
+posts/*v[2-9].docx
