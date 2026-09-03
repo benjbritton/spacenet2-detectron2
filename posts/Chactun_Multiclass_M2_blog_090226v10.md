@@ -223,7 +223,7 @@ The first route is straightforward and constraining — publish the recipe and r
 
 The second route is the direct analogue of the intervention that produced the measurable gain in this milestone, and the analogy is worth spelling out.
 
-Arm D worked by augmenting over a property the model should not depend on. A mound is a mound whichever way the tile is turned, so showing the model every rotation taught it to ignore orientation rather than requiring every survey to be flown on the same heading.
+Arm D (D4 dihedral augmentation) worked by augmenting over a property the model should not depend on. A mound is a mound whichever way the tile is turned, so showing the model every rotation taught it to ignore orientation rather than requiring every survey to be flown on the same heading.
 
 Portability has the same shape with a different property. A mound is a mound whichever visualization recipe rendered it, so showing the model many renderings would teach it to ignore the recipe rather than requiring every user to run one specific pipeline.
 
