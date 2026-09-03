@@ -2164,3 +2164,125 @@ rendering-augmentation buys robustness.
   mask inward before tiling would.
 - The Chactun deposit also contains a canopy height model and Sentinel-1/2
   layers that this project has never used.
+
+
+## 2026-09-03 - The canonical split, and an intervention that moves one metric but not the other
+
+Everything in Milestone C was measured on splits this project constructed:
+five appearance-clustered folds, built here, evaluated here. The D4 result
+(+4.16 AP) is the headline, and it had never been checked against a split whose
+construction logic came from somewhere else.
+
+The ECML PKDD 2021 challenge defines one: **train on tiles 0-1764, test on
+tiles 1765-2093**. It shares no design decision with the clustered folds, and it
+is the split the 25 published leaderboard entries were scored on. Arms A
+(control) and D (D4 augmentation) were retrained on it, single seed, everything
+else held at the Milestone C configuration.
+
+### The D4 effect replicates
+
+| arm | CV (5-fold, clustered) | canonical split | shift |
+|---|---|---|---|
+| A - control | 38.71 +/- 2.45 | 40.46 | +1.75 |
+| D - D4 augmentation | 42.87 +/- 2.80 | 44.63 | +1.76 |
+| **D - A** | **+4.16** | **+4.17** | - |
+
+The difference reproduces to within 0.01 AP. Both arms sit about 1.75 AP higher
+on the canonical split than on the clustered folds, and both shift by the same
+amount, which is the optimism of a contiguous index split over appearance
+clustering -- now measured rather than asserted. It moves the level and leaves
+the contrast alone.
+
+Training times were 43.9 min (A) and 43.5 min (D) on the A5000.
+
+### Scoring our predictions the way the leaderboard was scored
+
+The leaderboard metric is semantic IoU on unioned per-class masks, not instance
+AP. Placing our result beside the published numbers means rescoring the same
+predictions their way, which `scripts/chactun_semantic_iou.py` does against the
+released mask rasters.
+
+Two things about that metric had to be resolved rather than assumed. The overall
+column IS determined: it is the unweighted mean of the three class IoUs, checked
+against every leaderboard row (Aksell 0.9844/0.7651/0.7530 averages to 0.8342
+against 0.8341 published). What is NOT stated anywhere is whether a class IoU is
+pooled over pixels or averaged over tiles, and if averaged, what an empty
+prediction on an empty tile scores. All three conventions are therefore computed
+and stored side by side. The per-tile convention counting empty-empty as
+agreement is the one that reproduces the leaderboard's scale, so it is the one
+quoted below.
+
+Score threshold was swept 0.05-0.95, since a submission is a binary mask and
+every team tuned that choice. A's optimum first appeared at 0.80, the top of the
+original grid, so the grid was extended to 0.95 to confirm it is a real interior
+maximum and not the edge of the sweep. It is.
+
+| | buildings | platforms | aguadas | overall |
+|---|---|---|---|---|
+| Leaderboard 1st (Aksell) | 0.7530 | 0.7651 | 0.9844 | 0.8341 |
+| Leaderboard 8th | - | - | - | 0.8110 |
+| A - control, thr 0.80 | 0.7006 | 0.7158 | 0.9740 | **0.7968** |
+| D - D4, thr 0.70 | 0.6991 | 0.7096 | 0.9726 | **0.7938** |
+| predict nothing | 0.3495 | 0.4559 | 0.9574 | 0.5876 |
+
+Both arms sit on a broad plateau: A scores 0.7898-0.7968 across thresholds
+0.60-0.85, so the location of its peak carries less information than the height.
+
+### The intervention that moves AP does not move IoU
+
+D beats A by 4.17 AP and is level with it on semantic IoU -- 0.7938 against
+0.7968, a gap of 0.003 on a single seed per arm. **Read that as no detectable
+difference, not as D being lower.**
+
+This is the substantive finding of the day. D4 augmentation buys instance
+separation and ranking quality, and a unioned per-class mask cannot see either:
+merge two adjacent buildings into one blob and the semantic mask is unchanged
+while AP drops. The headline result of Milestone C is therefore specific to the
+metric it was measured with, and any claim about it has to carry that
+qualification.
+
+It also cuts the other way. The leaderboard cannot distinguish a model that
+separates structures from one that paints the right pixels, so a high
+leaderboard placement is not evidence of the property this project actually
+wants.
+
+### The aguada column is almost entirely agreement about absence
+
+Aguadas appear in 13 of the 329 test tiles. Predicting no aguada anywhere scores
+**0.9574** under this convention. We score 0.9740, a gain of 0.017 over that
+null. The leaderboard's best, 0.9844, is a gain of 0.027 over the same null, and
+all 25 teams live inside a one-point band above it.
+
+So a 0.97 aguada IoU and the earlier finding that aguadas are band-limited are
+not in tension. The metric is reporting that 316 of 329 tiles correctly contain
+nothing. The informative aguada number is instance AP, 32.0 (A) and 36.2 (D).
+
+### Where this actually places
+
+0.7968 against 0.8110 for 8th of 25 -- a single Mask R-CNN R50-FPN against
+ensembles with pseudo-labelling and test-time augmentation. Platforms at 0.716
+sit inside the published range of 0.708-0.765; buildings at 0.701 fall just
+under the 0.707 floor.
+
+### Limitations
+
+- One seed per arm on this split. The A-vs-D AP difference is corroborated by
+  the 5-fold CV; the A-vs-D IoU difference is not corroborated by anything and
+  is smaller than the seed spread seen elsewhere.
+- The threshold was chosen on the test tiles themselves, as the leaderboard
+  entries' were. That inflates all quoted IoU values including ours; the
+  plateau's width is what keeps it from mattering much.
+- The canonical split is contiguous in tile index, so it is not spatially
+  blocked either. It is a different arbitrary split, not a better one, and its
+  value here is exactly that its arbitrariness is somebody else's.
+
+### Files
+
+- Scorer: `scripts/chactun_semantic_iou.py`
+- Split: `configs/chactun_canonical_split.json`, mirrored to
+  `data/chactun/splits/canonical_challenge.json`; COCO form at
+  `data/chactun/coco/fold9_{train,val,val_noedge}.json`
+- Weights and metrics: `outputs/chactun_{A_maskrcnn_default_anchors,D_maskrcnn_d4_augmentation}/fold9_seed0/`
+- Threshold sweeps: `semantic_iou_sweep.json` in each of those directories;
+  null baseline at `outputs/chactun_semantic_iou_null.json`
+- Run log: `outputs/canonical_train.log`
