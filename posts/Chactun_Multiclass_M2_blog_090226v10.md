@@ -167,7 +167,9 @@ So the class is not underlearned. It is unrepresented — the Chactún dataset o
 
 The obvious next question for anything built as a survey tool: hand it somebody else's LiDAR and see if it helps. The test used G-LiHT Yucatán, South GLAS tile l0s395 at 33 cm — a different survey, different sensor, different processing pipeline, different resolution.
 
-Tiling was done by **ground extent** rather than pixel count, which matters more than it sounds. Measured on Chactún, naive fixed-pixel tiling costs about two-thirds of the resolution penalty, because a 1 m survey puts four times the ground in each 480×480 tile and objects shrink accordingly. Tiling in meters holds object size constant and removes that entirely — a 240 m tile resized to 800 px reproduces the training scale whatever the source resolution.
+Tiling was done by **ground extent** rather than pixel count, which matters more than it sounds. Measured on Chactún, naive fixed-pixel tiling accounts for about two-thirds of the resolution penalty: at 1.0 m resolution a fixed 480×480 pixel tile covers twice the linear distance (480 m), causing target structures to shrink to a quarter of their native pixel area. Tiling by ground extent holds object scale constant — cropping a fixed 240 m ground window, matching Chactún's native spatial coverage, and resizing it to 800 px reproduces the training scale whatever the source resolution.
+
+What that does not restore is detail. The remaining third of the penalty is information the coarser survey never recorded, and it is what the table below measures.
 
 | survey resolution | arm A | arm D |
 |---|---|---|
