@@ -195,7 +195,7 @@ The second run — sky-view factor, positive openness and slope regenerated with
 
 Band **statistics**were matched — each band rescaled so its valid pixels carried Chactún's mean and standard deviation — rather than the stretch**function**. Sky-view factor is physically bounded 0 to 1. If Chactún mapped that range to bytes by some fixed function, the correct move is to apply that identical function. Recentering the distribution instead assigns *different byte values to the same physical quantity*, so the model received a third representation rather than the training one.
 
-And the stretch cannot be recovered. Verified against the deposit's file list, Chactún provides ML-ready visualizations, masks, a canopy height model and Sentinel-1/2 imagery. **There is no DEM, no DTM and no point cloud.**
+And the stretch function cannot be recovered. Verified against the deposit's file list, Chactún provides ML-ready visualizations, masks, a canopy height model, and Sentinel-1/2 imagery, but no DEM, no DTM, and no point cloud data.
 
 That is three restrictions, each irreversible:
 
