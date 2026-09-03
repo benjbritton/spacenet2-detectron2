@@ -225,9 +225,9 @@ The second route is the direct analogue of the intervention that produced the me
 
 Arm D (D4 dihedral augmentation) worked by augmenting over a property the model should not depend on. A mound is a mound whichever way the tile is turned, so showing the model every rotation taught it to ignore orientation rather than requiring every survey to be flown on the same heading.
 
-Portability follows the exact same logic, swapping orientation for visualization style. A mound is a mound whichever rendering recipe created it, so training the model across multiple visualization styles would teach it to focus on structural geometry rather than forcing every user to adopt a single pipeline.
+Portability follows the exact same logic, swapping orientation for visualization style. A mound is a mound whichever rendering recipe created it.
 
-Training on the same terrain rendered many different ways — different stretches, visualizations and blends — would teach a model to key on the shape of a relief signature rather than on one rendering's byte patterns.
+Training on the same terrain rendered many different ways — different stretches, visualizations and blends — would teach the model to key on the shape of the relief signature rather than on one rendering's byte patterns, instead of requiring every user to adopt a single pipeline.
 
 Testing it would require holding out a **rendering**, not merely a set of tiles. Otherwise the experiment measures in-domain accuracy and says nothing about robustness.
 

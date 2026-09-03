@@ -359,8 +359,8 @@ hr { border: 0; border-top: 1px solid #e5e5e5; margin: 2rem 0; }
 <p>The first route is straightforward and constraining — publish the recipe and require every user to run it.</p>
 <p>The second route is the direct analogue of the intervention that produced the measurable gain in this milestone, and the analogy is worth spelling out.</p>
 <p>Arm D (D4 dihedral augmentation) worked by augmenting over a property the model should not depend on. A mound is a mound whichever way the tile is turned, so showing the model every rotation taught it to ignore orientation rather than requiring every survey to be flown on the same heading.</p>
-<p>Portability follows the exact same logic, swapping orientation for visualization style. A mound is a mound whichever rendering recipe created it, so training the model across multiple visualization styles would teach it to focus on structural geometry rather than forcing every user to adopt a single pipeline.</p>
-<p>Training on the same terrain rendered many different ways — different stretches, visualizations and blends — would teach a model to key on the shape of a relief signature rather than on one rendering's byte patterns.</p>
+<p>Portability follows the exact same logic, swapping orientation for visualization style. A mound is a mound whichever rendering recipe created it.</p>
+<p>Training on the same terrain rendered many different ways — different stretches, visualizations and blends — would teach the model to key on the shape of the relief signature rather than on one rendering's byte patterns, instead of requiring every user to adopt a single pipeline.</p>
 <p>Testing it would require holding out a <strong>rendering</strong>, not merely a set of tiles. Otherwise the experiment measures in-domain accuracy and says nothing about robustness.</p>
 <p>It would also carry a real trade. Forced invariance across genuinely different visualizations may cause a model to learn only their intersection, buying robustness at some cost in accuracy. Worth measuring rather than assuming.</p>
 <p>Such a tool would aim at high-throughput, out-of-domain candidate retrieval, with four properties:</p>
