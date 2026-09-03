@@ -89,7 +89,7 @@ Two predictions were written into the configs *before* the runs, so they could n
 | E — repeat sampling | 38.65 ± 2.31 | −0.06 | null |
 | B — shifted anchors | 37.91 ± 2.67 | −0.80 | null |
 
-**Anchor scale is ruled out.**At the 800 px input these configs use, 31.8% of buildings fall below the smallest 32 px anchor — an obvious-looking problem with an obvious-looking fix. Shifting the ladder down an octave gave −0.80 ± 1.07, below the seed noise floor, with * every* metric negative. It is the fifth mechanism in this project to correlate with the symptom and then not survive ablation — a pattern worth noting in its own right.
+**Anchor scale is ruled out.** At the standard 800 px input resolution, nearly a third (31.8%) of annotated buildings are smaller than 32 pixels — smaller than the model's default minimum detection box (anchor). This is a common problem with a standard solution: shrink the reference anchors down an octave to catch smaller targets. Yet doing so yielded a slight performance drop (−0.80 ± 1.07 AP), well within random training noise, with every metric turning negative. It is the fifth mechanism in this project to align neatly with a theoretical symptom only to fail under empirical testing — a pattern worth noting in its own right.
 
 **Cascade confirmed a predicted pattern at an irrelevant magnitude.**The prediction on record was AP50 within noise, AP75 favoring cascade, AP(0.5:0.95) favoring it partly spuriously. Observed: AP50 −0.36, AP75 +2.23, segm AP +0.68. The pattern held; nothing reached significance; it costs 27% more compute per run.
 
