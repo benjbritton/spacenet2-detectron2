@@ -93,7 +93,7 @@ Two predictions were written into the configs *before* the runs, so they could n
 
 **Cascade confirmed a predicted pattern at an irrelevant magnitude.** The prediction on record was AP50 within noise, AP75 favoring cascade, AP(0.5:0.95) favoring it partly spuriously. Observed: AP50 −0.36, AP75 +2.23, segm AP +0.68. The pattern held; nothing reached significance; it costs 27% more compute per run.
 
-**Resolution is ruled out as well, and the effect runs counter to the prediction.** Arm B ruled out giving small objects* anchors*; arm F tested giving them *features*, which is a different mechanism — at stride 4, a 25 px building covers about 6 feature cells natively and about 12 at double scale. Two competing predictions were recorded in the config beforehand, +1.5 to +3.0 against +0 to +1.5. The result was **+0.10**, and small-object AP went *down* by 0.71. Both predictions agreed that a genuine resolution effect had to appear in AP75 and small-object AP rather than AP50; it appeared in neither. The effect runs opposite to the prediction, so the mechanism is ruled out on direction as well as magnitude.
+**Resolution is ruled out as well, and the effect runs counter to the prediction.** Arm B ruled out giving small objects *anchors*; arm F tested giving them *features*, which is a different mechanism — at stride 4, a 25 px building covers about 6 feature cells natively and about 12 at double scale. Two competing predictions were recorded in the config beforehand, +1.5 to +3.0 against +0 to +1.5. The result was **+0.10**, and small-object AP went *down* by 0.71. Both predictions agreed that a genuine resolution effect had to appear in AP75 and small-object AP rather than AP50; it appeared in neither. The effect runs opposite to the prediction, so the mechanism is ruled out on direction as well as magnitude.
 
 That closes the scale family. Object scale can bind through the anchors that propose regions or the features that characterize them. Neither does.
 
@@ -103,7 +103,7 @@ Its validity rests on a property of the bands. Sky-view factor, positive opennes
 
 The transforms were verified label-preserving rather than assumed: rasterize a tile's polygons, rotate that raster, and compare against the same polygons pushed through the coordinate transform. IoU 1.0000 for all four rotations. A rotation that moves pixels but not coordinates trains silently with every label detached from its object, and nothing downstream flags it.
 
-**The trajectories refine the explanation.** Regularization would predict the baseline peaks early and decays. It does decay — but only 1.18 on building, against a 4.91 gain, so it accounts for at most a quarter. The trajectories show the arms identical through iteration 1500, after which the baseline stops improving and arm D does not. The baseline* exhausts* what 1,669 tiles can teach it; D4 keeps finding new information because each epoch presents genuinely different views. That also implies arm D was still climbing when training stopped, so +4.16 is a floor rather than the effect size.
+**The trajectories refine the explanation.** Regularization would predict the baseline peaks early and decays. It does decay — but only 1.18 on building, against a 4.91 gain, so it accounts for at most a quarter. The trajectories show the arms identical through iteration 1500, after which the baseline stops improving and arm D does not. The baseline *exhausts* what 1,669 tiles can teach it; D4 keeps finding new information because each epoch presents genuinely different views. That also implies arm D was still climbing when training stopped, so +4.16 is a floor rather than the effect size.
 
 ---
 
@@ -217,7 +217,7 @@ What follows was not part of the assigned work, and nothing here was built or te
 
 It is recorded as a design specification derived from the result above. Given what was measured, these are the properties a portable regional tool would need to satisfy, and the reasoning that produces each one.
 
-The derivation runs: *the model did not transfer* →* because its input representation could not be reproduced* →* therefore portability requires either a reproducible input specification, or a model indifferent to the representation it is given.*
+The derivation runs: *the model did not transfer* → *because its input representation could not be reproduced* → *therefore portability requires either a reproducible input specification, or a model indifferent to the representation it is given.*
 
 The first route is straightforward and constraining — publish the recipe and require every user to run it.
 
