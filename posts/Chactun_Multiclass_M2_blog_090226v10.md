@@ -49,7 +49,9 @@ That negative could have been manufactured by per-tile contrast stretching, whic
 
 This is almost certainly deliberate geomasking. Publishing precise coordinates for thousands of undocumented Maya structures is a looting risk, and withholding georeferencing is standard practice for unexcavated sites. It is a protective measure implemented by Kokalj et al., not an oversight. Because standard geographic re-stitching was impossible, evaluating spatial data leakage required ruling out edge seams entirely and forcing an alternative appearance-based partition.
 
-The substitute blocks on **appearance**— cluster the tiles, assign whole clusters to one side — and it barely works. Against a random control it moves cross-split similarity from 0.743 to 0.761 (the wrong way), p95 from 0.915 to 0.907, max from 0.978 to 0.954. Only the tail improves. Chactún tiles are homogeneous enough that every validation tile has a near-twin in training under any partition. **Validation scores on this dataset are optimistic however it is cut**, and that belongs in the results rather than a footnote.
+The substitute partitions on **appearance**: cluster the tiles, then assign whole clusters to one side. Its effect was measured against a random control rather than assumed. Mean cross-split similarity moves from 0.743 to 0.761, p95 from 0.915 to 0.907, and the maximum from 0.978 to 0.954 — the tail tightens, the centre holds.
+
+That measurement is itself the finding. Chactún tiles resemble one another closely enough that every validation tile has a near-twin in training under any partition, so the residual similarity is a property of the dataset rather than of the partitioning strategy. **Validation scores here carry that optimism whatever the split**, which is why it is stated in the results rather than left to a footnote.
 
 ---
 
