@@ -3,7 +3,7 @@
 
 THE DATASET
 -----------
-Chactun (Somrak et al., Scientific Data 2023, CC BY 4.0, figshare
+Chactun (Kokalj et al., Scientific Data 10:558, 2023, CC BY 4.0, figshare
 10.6084/m9.figshare.22202395) ships 2094 tiles of airborne laser scanning
 visualisations over central Yucatan, with manual annotations of ancient Maya
 structures as SEMANTIC masks -- one binary raster per class per tile.
@@ -236,7 +236,7 @@ def convert(root, out_path, use_watershed, use_rle, min_area,
         "info": {
             "description": "Chactun ancient Maya structures, instances derived "
                            "from per-class semantic masks",
-            "source": "Somrak et al. 2023, Scientific Data, "
+            "source": "Kokalj et al. 2023, Scientific Data 10:558, "
                       "doi 10.6084/m9.figshare.22202395",
             "licence": "CC BY 4.0",
             "date_created": datetime.now().isoformat(timespec="seconds"),

@@ -1607,7 +1607,7 @@ combined.
 
 ### The dataset, and three ways to ruin it silently
 
-Chactun (Somrak et al., Scientific Data 2023, CC BY 4.0, figshare
+Chactun (Kokalj et al., Scientific Data 10:558, 2023, CC BY 4.0, figshare
 10.6084/m9.figshare.22202395): 2094 tiles of airborne laser scanning
 visualisations over central Yucatan, 480x480 at 0.5 m, three bands -- sky-view
 factor, positive openness, slope. Annotations are per-class SEMANTIC masks.

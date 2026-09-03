@@ -246,7 +246,7 @@ def main():
                 "arm": args.arm,
                 "base_config": base,
                 "repo_config": repo_cfg,
-                "dataset": "Chactun (Somrak et al. 2023)",
+                "dataset": "Chactun (Kokalj et al. 2023)",
                 "roi_heads": cfg.MODEL.ROI_HEADS.NAME,
                 "anchor_sizes": str(cfg.MODEL.ANCHOR_GENERATOR.SIZES),
                 "min_size_train": str(cfg.INPUT.MIN_SIZE_TRAIN),

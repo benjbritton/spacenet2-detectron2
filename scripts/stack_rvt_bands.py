@@ -10,7 +10,7 @@ Band order is Chactun's: sky-view factor, positive openness, slope. It is not
 interchangeable; the pretrained first layer learned what each channel carries.
 
 Each band is linearly mapped so its valid pixels take Chactun's own mean and
-standard deviation. RVT's byte stretch and Somrak's need not agree, and matching
+standard deviation. RVT's byte stretch and the dataset's need not agree, and matching
 the statistics puts the input where the model expects it regardless.
 """
 import argparse
