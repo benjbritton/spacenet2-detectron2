@@ -191,9 +191,28 @@ def main():
             i += 1
             continue
 
+        # Body paragraph: markdown joins consecutive non-blank lines, so
+        # gather them before rendering. Stop at a blank line or at anything
+        # that starts a block of its own -- otherwise a wrapped paragraph
+        # becomes several stacked ones and emphasis spanning a line break
+        # loses its markers.
+        buf = [s]
+        j = i + 1
+        while j < len(lines):
+            nxt = lines[j].strip()
+            if not nxt or nxt in ("---", "***", "___"):
+                break
+            if re.match(r"^(#{1,4})\s+", nxt) or re.match(r"^[-*+]\s+", nxt):
+                break
+            if nxt.startswith(">") or nxt.startswith("|") or nxt.startswith("```"):
+                break
+            if re.fullmatch(r"!\[([^\]]*)\]\(([^)]+)\)", nxt):
+                break
+            buf.append(nxt)
+            j += 1
         par = doc.add_paragraph()
-        add_runs(par, s)
-        i += 1
+        add_runs(par, " ".join(buf))
+        i = j
 
     doc.save(a.out)
     print("tables: %d, images: %d" % (n_tab, n_img))
