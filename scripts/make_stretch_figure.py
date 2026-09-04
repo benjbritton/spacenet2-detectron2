@@ -52,14 +52,26 @@ PANELS = {
 }
 
 
-def crop(path, cx, cy, halfw, halfh):
+def crop(path, cx, cy, halfw, halfh, stretch=True):
     with rasterio.open(path) as src:
         win = from_bounds(cx - halfw, cy - halfh, cx + halfw, cy + halfh,
                           src.transform)
         arr = src.read(window=win, boundless=True, fill_value=0)
         tr = src.window_transform(win)
     rgb = (np.transpose(arr[:3], (1, 2, 0)) if arr.shape[0] >= 3
-           else np.stack([arr[0]] * 3, -1))
+           else np.stack([arr[0]] * 3, -1)).astype(np.float32)
+    if stretch:
+        # DISPLAY ONLY, and deliberately not the training preprocessing: the
+        # delivered composite renders flat without it. Nodata (all-zero) is
+        # held out of the percentiles so the black wedge does not drag the
+        # low end down and grey out the terrain.
+        v = rgb.max(axis=2) > 8
+        if v.any():
+            lo = np.percentile(rgb[v], 2.0)
+            hi = np.percentile(rgb[v], 98.0)
+            out = np.clip((rgb - lo) / max(hi - lo, 1e-6), 0, 1) * 255.0
+            out[~v] = 0
+            rgb = out
     return cv2.cvtColor(rgb.astype(np.uint8), cv2.COLOR_RGB2BGR), tr
 
 
@@ -96,16 +108,51 @@ def valid_bbox(panels, thresh=8):
     return rows[0], rows[-1] + 1, cols[0], cols[-1] + 1
 
 
+def annotate(panel, res_m, fs):
+    """North arrow (imagery is north-up) and a scale bar, lower left."""
+    h, w = panel.shape[:2]
+    pad = int(18 * fs)
+
+    # scale bar: a round number of metres that fits comfortably
+    for metres in (200, 100, 50, 25):
+        px = metres / res_m
+        if px < w * 0.34:
+            break
+    px = int(metres / res_m)
+    y = h - pad
+    x0 = pad
+    cv2.rectangle(panel, (x0 - 6, y - int(26 * fs)),
+                  (x0 + px + 6, y + 8), (0, 0, 0), -1)
+    cv2.line(panel, (x0, y), (x0 + px, y), (255, 255, 255), max(2, int(3 * fs)))
+    for xt in (x0, x0 + px):
+        cv2.line(panel, (xt, y - int(7 * fs)), (xt, y + int(7 * fs)),
+                 (255, 255, 255), max(2, int(3 * fs)))
+    cv2.putText(panel, "%d m" % metres, (x0, y - int(11 * fs)),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6 * fs, (255, 255, 255),
+                max(1, int(2 * fs)), cv2.LINE_AA)
+
+    # north arrow, straight up
+    ax = x0 + px + int(52 * fs)
+    ay = y
+    tip = ay - int(52 * fs)
+    cv2.rectangle(panel, (ax - int(20 * fs), tip - int(22 * fs)),
+                  (ax + int(20 * fs), ay + 8), (0, 0, 0), -1)
+    cv2.arrowedLine(panel, (ax, ay), (ax, tip), (255, 255, 255),
+                    max(2, int(3 * fs)), cv2.LINE_AA, tipLength=0.42)
+    cv2.putText(panel, "N", (ax - int(9 * fs), tip - int(7 * fs)),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.68 * fs, (255, 255, 255),
+                max(1, int(2 * fs)), cv2.LINE_AA)
+    return panel
+
+
 def caption(panel, title, sub, count, fs):
     w = panel.shape[1]
-    bar = np.zeros((int(112 * fs), w, 3), np.uint8)
-    cv2.putText(bar, title, (16, int(40 * fs)), cv2.FONT_HERSHEY_SIMPLEX,
-                1.15 * fs, (255, 255, 255), max(1, int(3 * fs)), cv2.LINE_AA)
-    cv2.putText(bar, sub, (16, int(72 * fs)), cv2.FONT_HERSHEY_SIMPLEX,
-                0.72 * fs, (170, 170, 170), max(1, int(2 * fs)), cv2.LINE_AA)
-    cv2.putText(bar, "%d detections in this view" % count, (16, int(100 * fs)),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.72 * fs, (120, 225, 120),
-                max(1, int(2 * fs)), cv2.LINE_AA)
+    bar = np.zeros((int(58 * fs), w, 3), np.uint8)
+    cv2.putText(bar, title, (14, int(26 * fs)), cv2.FONT_HERSHEY_SIMPLEX,
+                0.82 * fs, (255, 255, 255), max(1, int(2 * fs)), cv2.LINE_AA)
+    cv2.putText(bar, "%s   -   %d detections" % (sub, count), (14, int(48 * fs)),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.56 * fs, (185, 185, 185),
+                max(1, int(1 * fs)), cv2.LINE_AA)
     return np.vstack([bar, panel])
 
 
@@ -114,7 +161,7 @@ def main():
     p.add_argument("--dir", default="outputs/gliht_spec")
     p.add_argument("--easting", type=float, default=751950.0)
     p.add_argument("--northing", type=float, default=2096550.0)
-    p.add_argument("--extent-m", type=float, default=400.0,
+    p.add_argument("--extent-m", type=float, default=460.0,
                    help="window width in metres")
     p.add_argument("--height-m", type=float, default=None,
                    help="window height in metres; defaults to --extent-m")
@@ -140,6 +187,7 @@ def main():
                        halfw, halfh)
         n = draw(bgr, tr, os.path.join(a.dir, gj), a.easting, a.northing,
                  halfw, halfh)
+        annotate(bgr, abs(tr.a), a.font_scale)
         print("%-28s %3d detections in view" % (title, n))
         raws.append(bgr)
         metas.append((title, sub, n))
@@ -160,16 +208,6 @@ def main():
     for x in out[1:]:
         fig = np.hstack([fig, gap, x])
 
-    foot = np.zeros((int(46 * fs), fig.shape[1], 3), np.uint8)
-    base_note = ("each panel on its own input"
-                 if a.basemap == "own"
-                 else "shared basemap, so the detection sets compare directly")
-    cv2.putText(foot, "%d E %d N (Pixoyal), %d m wide.  %s.  Cyan building, "
-                "amber platform, red aguada."
-                % (int(a.easting), int(a.northing), int(a.extent_m), base_note),
-                (16, int(30 * fs)), cv2.FONT_HERSHEY_SIMPLEX, 0.72 * fs,
-                (190, 190, 190), max(1, int(2 * fs)), cv2.LINE_AA)
-    fig = np.vstack([fig, foot])
 
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     cv2.imwrite(a.out, fig)
