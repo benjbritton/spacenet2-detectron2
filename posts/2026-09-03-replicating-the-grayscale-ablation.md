@@ -18,7 +18,7 @@ the difficulty of telling these two panels apart is what that number looks like.
 
 ## Why run it again
 
-The original grayscale ablation asked whether colour causes the difficulty ordering across SpaceNet 2's four cities. Roof-to-ground hue separation had been measured at 2.3° in Khartoum against 29.4° in Vegas, and that ordering matched detection difficulty exactly. If the relationship were causal, removing colour should collapse the gap by roughly 42.7%. It closed it by 0.4%, so hue was a correlate rather than a cause.
+The [original grayscale ablation](2026-08-30-hue-predicts-which-cities-are-hard.md) asked whether colour causes the difficulty ordering across SpaceNet 2's four cities. Roof-to-ground hue separation had been measured at 2.3° in Khartoum against 29.4° in Vegas, and that ordering matched detection difficulty exactly. If the relationship were causal, removing colour should collapse the gap by roughly 42.7%. It closed it by 0.4%, so hue was a correlate rather than a cause.
 
 That result stood on **one training run against a three-seed colour baseline**. Every uncertainty quoted for it was therefore borrowed from the colour arm — the grayscale arm had no spread of its own, and a single run cannot supply one. The consequence was a specific, stated limitation: only the pooled delta was treated as established, and every per-city movement was left unresolved.
 

@@ -128,7 +128,7 @@ Three seeds per arm, at the fixed 0.544 reporting threshold. *p* is a two-sided 
 
 Removing chroma does cost something small and repeatable — 0.61% of pooled F1, separated from zero at *p* = 0.011. So colour is not inert; it is close to irrelevant, which is a different claim and the one the numbers support. The largest single loss is **Shanghai at −1.54%**, and Shanghai is the city whose chroma the per-image stretch amplifies most, from 5.0° to 63.7° of roof-to-ground separation. The network extracts a little from chroma, concentrated where the preprocessing amplified it, and that little comes nowhere near explaining why Khartoum is hard.
 
-*Originally run at one seed against a three-seed colour baseline; replicated at three seeds on 2026-09-03, which resolved Vegas and Shanghai and left Khartoum unresolved. The conclusion is unchanged.*
+*Originally run at one seed against a three-seed colour baseline; replicated at three seeds on 2026-09-03, which resolved Vegas and Shanghai and left Khartoum unresolved. The conclusion is unchanged.* The replication has its own write-up — [predictions registered before the runs, the scorecard, and a side-by-side of the same tile under both arms](2026-09-03-replicating-the-grayscale-ablation.md).
 
 ## What was actually going on
 
