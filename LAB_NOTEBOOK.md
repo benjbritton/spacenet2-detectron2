@@ -2248,14 +2248,22 @@ wants.
 
 ### The aguada column is almost entirely agreement about absence
 
-Aguadas appear in 13 of the 329 test tiles. Predicting no aguada anywhere scores
+Aguadas appear in 14 of the 329 test tiles. Predicting no aguada anywhere scores
 **0.9574** under this convention. We score 0.9740, a gain of 0.017 over that
 null. The leaderboard's best, 0.9844, is a gain of 0.027 over the same null, and
 all 25 teams live inside a one-point band above it.
 
 So a 0.97 aguada IoU and the earlier finding that aguadas are band-limited are
-not in tension. The metric is reporting that 316 of 329 tiles correctly contain
+not in tension. The metric is reporting that 315 of 329 tiles correctly contain
 nothing. The informative aguada number is instance AP, 32.0 (A) and 36.2 (D).
+
+> **Corrected 2026-09-04.** The aguada tile count above read 13 of 329, and the
+> empty count 316. Counted directly from the released masks the figures are
+> **14 aguada-positive and 315 empty**, and 315/329 = 0.9574 reproduces the
+> measured null exactly, which the earlier numbers did not. The correction
+> slightly strengthens the argument rather than weakening it: one more test tile
+> carries an aguada than was claimed, and the null score is unchanged.
+
 
 ### Where this actually places
 
@@ -2612,7 +2620,7 @@ Registered in the previous entry before the run.
   buildings and came in under it.
 - **#3 narrowly missed.** Aguada was called between 0.95 and 0.985; observed
   0.9852, outside by 0.0002. It also exceeds first place's 0.9844, which says
-  more about that column being agreement about absence in 316 of 329 tiles than
+  more about that column being agreement about absence in 315 of 329 tiles than
   about this model.
 - **#4 held.** Did not approach 0.8341 at a matched budget.
 - **#5 held trivially.** No instance AP exists for this arm. A semantic model
