@@ -4,6 +4,18 @@
 
 ---
 
+![The same held-out Paris tile under both arms, colour and grayscale, each outlined with its own model's predictions](figures/grayscale_side_by_side.png)
+
+*Held-out tile, Paris img785, 67 annotated buildings. Each panel is rendered as
+that network actually received it -- the right one is the unweighted mean of the
+three stretched channels, replicated, which is what the grayscale arm trains on.
+Yellow is ground truth, cyan is a predicted footprint at the 0.544 reporting
+threshold. **Both arms return 53 detections**, and the outlines land in the same
+places. The whole measured cost of discarding colour is 0.61% of pooled F1;
+the difficulty of telling these two panels apart is what that number looks like.*
+
+---
+
 ## Why run it again
 
 The original grayscale ablation asked whether colour causes the difficulty ordering across SpaceNet 2's four cities. Roof-to-ground hue separation had been measured at 2.3° in Khartoum against 29.4° in Vegas, and that ordering matched detection difficulty exactly. If the relationship were causal, removing colour should collapse the gap by roughly 42.7%. It closed it by 0.4%, so hue was a correlate rather than a cause.

@@ -2466,6 +2466,9 @@ indifferent exactly where the stretch does the most work.
 
 Runs in `outputs/spacenet2_r50fpn_gray_seed{1,2}/`, logs at
 `outputs/gray_seed{1,2}.log`. Write-up at
-`posts/2026-09-03-replicating-the-grayscale-ablation.md`. Scored with
+`posts/2026-09-03-replicating-the-grayscale-ablation.md`, with the
+side-by-side figure at `posts/figures/grayscale_side_by_side.png` built by
+`scripts/make_grayscale_figure.py` (same tile, each arm rendered as its own
+network received it, both at 53 detections). Scored with
 `scripts/score_f1.py --threshold 0.544`, per-city via the `spacenet2_val_AOI_*`
 datasets.
