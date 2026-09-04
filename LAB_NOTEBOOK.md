@@ -2472,3 +2472,95 @@ side-by-side figure at `posts/figures/grayscale_side_by_side.png` built by
 network received it, both at 53 detections). Scored with
 `scripts/score_f1.py --threshold 0.544`, per-city via the `spacenet2_val_AOI_*`
 datasets.
+
+
+## 2026-09-04 - Prediction, recorded before the semantic segmentation baseline
+
+The post states that the 0.014 semantic-IoU gap to the eighth leaderboard entry
+has two candidate causes and that this project cannot separate them:
+architecture family, and capacity/effort. This run is the attempt to separate
+them, and this entry is committed before it starts.
+
+### What is being run and why this design
+
+A semantic segmentation model on the canonical challenge split, scored with the
+identical convention, so the only thing that changes from the reported
+instance-pipeline figures is the architecture family.
+
+**Three sigmoid channels, not a softmax.** Measured first rather than assumed:
+**57.2% of building pixels are also platform pixels**, because buildings sit on
+platforms, and 45.6% of platform pixels are building. A softmax head asserts the
+classes are mutually exclusive and could not reproduce this ground truth even in
+principle. Three independent binary channels is also the form the challenge
+scored -- one binary raster per class per tile.
+
+While measuring that, a check fell out: per-class tile counts on the train fold
+are building 1129, platform 952, aguada 64, matching the challenge organizers'
+published counts exactly. The split file reproduces their training set.
+
+Pixel frequencies, which is what a segmentation loss sees rather than instance
+counts: building 1.699%, platform 2.129%, aguada 0.334%.
+
+- **Model** DeepLabV3 with a ResNet-50 backbone, pretrained. Chosen so the
+  backbone matches the Mask R-CNN R50-FPN it is being compared against, and so
+  the family matches the DeepLabV3+ that appears in the leading entries. Holding
+  the backbone fixed is what makes this a test of architecture family rather
+  than of capacity.
+- **Loss** BCE plus soft Dice, no positive weighting. Dice carries the class
+  imbalance; a pos_weight of 298 for aguada was considered and rejected as a
+  tuning choice that would not be applied to the other arm.
+- **Augmentation** D4, matching arm D, and valid for the same reason: these
+  three bands are isotropic.
+- **Budget** matched to the instance arms at roughly 45 minutes on the A5000,
+  so effort is held approximately constant and only the architecture differs.
+- **Scoring** `scripts/chactun_semantic_iou.py` conventions, per-tile with
+  empty-on-empty counted as agreement, threshold swept.
+
+### The reference figures
+
+| | overall semantic IoU |
+|---|---|
+| Leaderboard 1st | 0.8341 |
+| Leaderboard 8th | 0.8110 |
+| arm A, instance, unioned | 0.7968 |
+| arm D, instance, unioned | 0.7938 |
+| predict nothing | 0.5876 |
+
+### Predictions
+
+1. **The semantic model scores above both instance arms.** Called at 0.80 to
+   0.83. The mechanism is specific: Mask R-CNN predicts each instance mask in a
+   small fixed grid and upsamples it, so boundary precision is capped
+   independently of how well the object was found, while a semantic model
+   predicts at stride 8 or better across the whole tile. If this is wrong and it
+   lands at or below 0.7968, architecture family is NOT the explanation and
+   capacity is left holding the whole gap.
+
+2. **Buildings gain more than platforms.** Buildings are the small class and the
+   one where the instance pipeline sits below the published floor at 0.701
+   against 0.707. Boundary quantisation costs a small object proportionally
+   more. Called: buildings +0.02 or better, platforms +0.01 or less.
+
+3. **Aguada barely moves and stays uninformative.** It is 0.334% of pixels and
+   present in 13 of 329 test tiles, and the null already scores 0.9574. Called
+   between 0.95 and 0.985 whatever happens elsewhere.
+
+4. **It will NOT reach 0.8341.** That entry is an ensemble with pseudo-labelling
+   and test-time augmentation; this is one model at a matched budget. A single
+   model reaching first place would mean the budget was not actually matched.
+
+5. **Instance AP is not computed for this arm and cannot be.** A semantic model
+   emits no instances. That asymmetry is the post's point, and this run is
+   expected to illustrate it rather than resolve it: whatever it scores, it
+   produces no inventory.
+
+### What each outcome means
+
+- **Lands 0.80-0.83:** architecture family is a real contributor, and the post
+  can say so instead of listing two possibilities. The deliverable argument is
+  unaffected -- it would mean the semantic model is better at the semantic
+  metric while still producing nothing to join on.
+- **Lands at or below 0.7968:** architecture family is excluded, and capacity
+  and ensembling carry the gap. The post's framing gets simpler and stronger.
+- **Lands above 0.8341:** the budget was not matched, or something is wrong with
+  the comparison. Treat as a fault, not a result.
