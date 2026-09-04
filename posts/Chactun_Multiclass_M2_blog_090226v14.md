@@ -51,7 +51,7 @@ That negative could have been manufactured by per-tile contrast stretching, whic
 
 This is deliberate geomasking. Publishing precise coordinates for thousands of undocumented Maya structures is a looting risk, and withholding georeferencing is standard practice for unexcavated sites. It is a protective measure implemented by Kokalj et al., not an oversight. Because standard geographic re-stitching was impossible, evaluating spatial data leakage required ruling out edge seams entirely and forcing an alternative appearance-based partition.
 
-The substitute partitions on **appearance**: cluster the tiles, then assign whole clusters to one side. Its effect was measured against a random control rather than assumed. Mean cross-split similarity moves from 0.743 to 0.761, p95 from 0.915 to 0.907, and the maximum from 0.978 to 0.954 — the tail tightens, the centre holds.
+The substitute partitions on **appearance**: cluster the tiles, then assign whole clusters to one side. Its effect was measured against a random control rather than assumed. Mean cross-split similarity moves from 0.743 to 0.761, p95 from 0.915 to 0.907, and the maximum from 0.978 to 0.954 — the tail tightens, the center holds.
 
 That measurement is itself the finding. Chactún tiles resemble one another closely enough that every validation tile has a near-twin in training under any partition, so the residual similarity is a property of the dataset rather than of the partitioning strategy. **Validation scores here carry that optimism whatever the split**, which is why it is stated in the results rather than left to a footnote.
 
@@ -307,9 +307,9 @@ This is consistency evidence rather than inversion — the source DEM is not rel
 
 ![Three encodings of the same ground at Pixoyal, each with its own detections on a shared basemap](figures/gliht_stretch_comparison.png)
 
-*The Pixoyal group, 460 m across, north up. Left, the Table 3 recipe: 164 detections here, 471 over the full strip. Centre, the delivered G1 composite: 66 and 235. Right, band statistics matched instead of the stretch function: 3 and 38.*
+*The Pixoyal group, 460 m across, north up. Left, the Table 3 recipe: 164 detections here, 471 over the full strip. Center, the delivered G1 composite: 66 and 235. Right, band statistics matched instead of the stretch function: 3 and 38.*
 
-In the image of the Pixoyal group above, the counts and the quality run in opposite directions. All three sets are drawn on one shared basemap, so what differs between the columns is the detections rather than the rendering. The centre column is the only one that reads as archaeology: discrete boxes on individual mounds and platform groups, at a density a surveyor could walk. The left column stacks overlapping boxes across the central complex and reaches large aguada and platform boxes over open terrain, and the right finds almost nothing. On review the centre is the variant worth using and the other two are not — the opposite of what the detection counts say.
+In the image of the Pixoyal group above, the counts and the quality run in opposite directions. All three sets are drawn on one shared basemap, so what differs between the columns is the detections rather than the rendering. The center column is the only one that reads as archaeology: discrete boxes on individual mounds and platform groups, at a density a surveyor could walk. The left column stacks overlapping boxes across the central complex and reaches large aguada and platform boxes over open terrain, and the right finds almost nothing. On review the center is the variant worth using and the other two are not — the opposite of what the detection counts say.
 
 **And it changes the model's behaviour, sharply.** All four encodings run through the same model (arm D), the same tiling and the same 4.47 km² of ground at 0.5 m:
 
