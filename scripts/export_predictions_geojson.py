@@ -157,10 +157,13 @@ def main():
             if geom is None:
                 continue
             x, y, w, h = inst["bbox"]
+            det_id = "%s_%06d" % (os.path.splitext(tile)[0], n_written + 1)
             feats[aoi].append({
                 "type": "Feature",
+                "id": det_id,
                 "geometry": geom,
                 "properties": {
+                    "det_id": det_id,
                     "source": "pred", "score": round(score, 4), "tile": tile,
                     "area_px": int(mask.sum()),
                     "bbox_w_px": round(float(w), 1),

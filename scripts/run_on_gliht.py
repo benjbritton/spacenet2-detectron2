@@ -197,13 +197,27 @@ def main():
     print("area      : ~%.2f km2, %.0f detections/km2"
           % (area_km2, len(kept) / max(area_km2, 1e-6)))
 
+    # Stable identifier per detection, plus the geometry summaries a join
+    # needs. Sorted by descending score first so the numbering is reproducible
+    # across runs rather than dependent on dictionary or NMS ordering.
+    stem = os.path.splitext(os.path.basename(a.out))[0]
+    kept = sorted(kept, key=lambda d: (-float(d["score"]),
+                                       d["bbox_map"][0], d["bbox_map"][1]))
     feats = []
-    for d in kept:
+    for i, d in enumerate(kept, 1):
         x0, y0, x1, y1 = d["bbox_map"]
+        det_id = "%s_%06d" % (stem, i)
         feats.append({
             "type": "Feature",
-            "properties": {"score": round(d["score"], 4), "class": d["cls"],
-                           "mode": a.mode},
+            "id": det_id,
+            "properties": {"det_id": det_id,
+                           "score": round(d["score"], 4), "class": d["cls"],
+                           "mode": a.mode,
+                           "centroid_x": round((x0 + x1) / 2.0, 3),
+                           "centroid_y": round((y0 + y1) / 2.0, 3),
+                           "bbox_w_m": round(abs(x1 - x0), 2),
+                           "bbox_h_m": round(abs(y1 - y0), 2),
+                           "bbox_area_m2": round(abs((x1 - x0) * (y1 - y0)), 2)},
             "geometry": {"type": "Polygon", "coordinates": [[
                 [x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]]},
         })
