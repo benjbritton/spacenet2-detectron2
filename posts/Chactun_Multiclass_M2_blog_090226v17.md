@@ -6,11 +6,11 @@
 
 Milestone C of this independent study asked for experience building a multiclass object detector from a provided dataset. The dataset was Chactún — 2,094 tiles of airborne laser scanning over 120.6 km² of the central Yucatán Peninsula, annotated for three classes of ancient Maya feature. The work divides cleanly in two.
 
-The first half covers the original goals of the exercise: build the detector, then establish what improves it. The detector recovers **92% of annotated structures** at a survey-appropriate operating point. Six candidate improvements were then tested against it under five-fold cross-validation — 36 training runs, paired comparisons, a measured seed-noise floor and multiple-comparison correction. One produced a replicated gain of **+4.16 AP** across every class and every fold, and it came from the data pipeline rather than the model, at no additional compute. The four model-side candidates came in within noise, which locates the remaining headroom: not in the architecture.
+The first half covers the original goals of the exercise: build the detector, then establish what improves it. The detector recovers **92% of annotated structures** at a survey-appropriate operating point. Six candidate improvements were then tested against it under five-fold cross-validation, 36 training runs in all. One produced a replicated gain of **+4.16 AP** across every class and every fold; the four model-side candidates came in within noise, which locates the remaining headroom outside the architecture.
 
-That gain was then checked against the split the dataset's own challenge defines, which shares no design decision with the ones used here. It reproduced to within **0.01 AP**. Rescoring the same predictions under the challenge's own metric, however, shows the gain vanish — not because it is unreal, but because the published metric cannot see the thing the intervention improves. Both facts are reported below.
+That gain was then checked against the split the dataset's own challenge defines, which shares no design decision with the ones used here. It reproduced to within **0.01 AP**. Rescoring the same predictions under the challenge's own metric, however, shows the gain vanish — not because it is unreal, but because that metric measures a different property from the one the intervention improves. Both facts are reported below.
 
-The second half includes further exploration of the dataset. The detector was taken to a different LiDAR survey — different sensor, processing chain and resolution — and evaluated there. The first two attempts produced nothing useful, and the diagnosis is the substantive result: **a detector is only as portable as the specification of its input**, and the specification is not something a model can compensate for. In this case the specification turned out to be published — in a table of the dataset paper rather than in the dataset — and applying it changed the model's behaviour sharply, though not in the direction a detection count alone would suggest. That sequence yields one requirement rather than a full specification, and it is the one the others rest on: the input rendering has to be reproducible on new ground. That is the most transferable output of the milestone.
+The second half includes further exploration of the dataset. The detector was taken to a different LiDAR survey — different sensor, processing chain and resolution — and evaluated there. The first two attempts produced nothing useful, and the diagnosis is the substantive result: **a detector is only as portable as the specification of its input.** The specification turned out to be published — in a table of the dataset paper rather than in the dataset — and applying it changed the model's behaviour sharply, though not in the direction a detection count alone would suggest. One requirement falls out of that sequence and the others rest on it: the input rendering has to be reproducible on new ground. That is the most transferable output of the milestone.
 
 ---
 
@@ -22,9 +22,9 @@ Converting semantic masks into instance annotations is the step that determines 
 
 **The masks are inverted.** Object pixels are 0; background is 255. Reading them the obvious way, mask > 0, produces one tile-sized "instance" per class per tile. Training proceeds and the loss decreases while the model learns nothing, since no error is raised. The inverted polarity was identified by inspecting the converted output rather than by any failure signal.
 
-**Semantic masks are not instance masks.** Adjacent structures that touch fuse into one connected component. Plain connected components recover 7,442 buildings against the 8,275 the dataset paper reports as present in these tiles — a 10% undercount, entirely from merging. (The often-quoted 9,303 is the count for the whole 130 km² annotated section, not for the 2,094 records, and comparing against it overstates the loss.) A distance-transform watershed was tried to separate them and does not work at any setting:
+**Semantic masks are not instance masks.** Adjacent structures that touch fuse into one connected component. Plain connected components recover 7,442 buildings against the 8,275 the dataset paper reports as present in these tiles — a 10% undercount, entirely from merging. (The often-quoted 9,303 is the count for the whole 130 km² annotated section, not for the 2,094 records, and comparing against it overstates the loss.) A distance-transform watershed was tried to separate them and does not work at any setting. The sweep below was run on a **500-tile subset**, so its counts are not comparable to the 7,442 above, which is the full 2,094-tile conversion — scaled to the subset that figure would be about 1,800:
 
-| mode | buildings | vs components | median footprint |
+| mode (500-tile subset) | buildings | vs components | median footprint |
 |---|---|---|---|
 | connected components | 1,679 | — | 157 m² |
 | watershed d=8 | 2,345 | ×1.40 | 114 m² |
@@ -90,14 +90,18 @@ Two predictions were written into the configs *before* the runs, so they could n
 
 ## Results across the six arms
 
-| arm | segm AP | vs control | verdict |
-|---|---|---|---|
-| **D — D4 augmentation**|**42.87 ± 2.80**|**+4.16**| real, survives correction |
-| F — 960 px input | 38.81 ± 2.77 | +0.10 | null |
-| A — control | 38.71 ± 2.45 | — | — |
-| C — cascade head | 38.58 ± 2.71 | −0.13 | null |
-| E — repeat sampling | 38.65 ± 2.31 | −0.06 | null |
-| B — shifted anchors | 37.91 ± 2.67 | −0.80 | null |
+Differences are paired by fold and the interval is a 95% confidence interval on the mean paired difference, t on 4 degrees of freedom. *dz* is the paired effect size.
+
+| arm | segm AP | vs control | 95% CI | *p* | *dz* |
+|---|---|---|---|---|---|
+| **D — D4 augmentation**|**42.87 ± 2.80**|**+4.16**|**[+2.70, +5.61]**|**0.0014**|**3.55**|
+| F — 960 px input | 38.81 ± 2.77 | +0.10 | [−1.25, +1.44] | 0.849 | 0.09 |
+| A — control | 38.71 ± 2.45 | — | — | — | — |
+| E — repeat sampling | 38.65 ± 2.31 | −0.06 | [−1.65, +1.53] | 0.922 | −0.05 |
+| C — cascade head | 38.58 ± 2.71 | −0.13 | [−1.66, +1.41] | 0.829 | −0.10 |
+| B — shifted anchors | 37.91 ± 2.67 | −0.80 | [−2.13, +0.53] | 0.169 | −0.75 |
+
+Four of the five intervals contain zero, which is what "within noise" means stated properly. Arm D's does not, and its effect size is large enough that the interval would have to be wrong by a factor of two before the conclusion changed.
 
 **Anchor scale is ruled out.** At the standard 800 px input resolution, nearly a third (31.8%) of annotated buildings are smaller than 32 pixels — the smallest of the reference boxes (anchors) the detector matches candidates against during training. This is a common problem with a standard solution: shrink the reference anchors down an octave to catch smaller targets. Yet doing so yielded a slight performance drop (−0.80 ± 1.07 AP), well within random training noise, with every metric turning negative. It is the fifth mechanism in this project to align neatly with a theoretical symptom only to fail under empirical testing — a pattern worth noting in its own right.
 
@@ -107,7 +111,9 @@ Two predictions were written into the configs *before* the runs, so they could n
 
 That closes the scale family. Object scale can bind through the anchors that propose regions or the features that characterize them. Neither does.
 
-**D4 data augmentation produced the one measurable gain**, and it improved every class. D4 is the set of eight symmetries of a square — horizontal and vertical flips, and rotations of 90°, 180° and 270° — so each training tile is presented in all eight orientations rather than one: +4.16 segm AP (t = 7.94), AP75 +5.89, building +4.91, platform +4.77, small objects +2.95. All five folds positive. Across roughly 42 tests in this milestone a Bonferroni threshold sits near 0.0012, and arm D's core results survive it while every marginal finding does not.
+**D4 data augmentation produced the one measurable gain**, and it improved every class. D4 is the set of eight symmetries of a square — horizontal and vertical flips, and rotations of 90°, 180° and 270° — so each training tile is presented in all eight orientations rather than one: +4.16 segm AP (t = 7.94), AP75 +5.89, building +4.91, platform +4.77, small objects +2.95. All five folds positive.
+
+**What five folds can support.** The correction family is five arms by seven metrics — **35 tests**, threshold **0.00143**, which arm D's *p* of 0.00136 clears by a hair and would fail had the family been drawn at 42. Little rests on that either way, because at n = 5 the exact permutation test cannot return a two-sided *p* below **0.0625** whatever the effect, and arm D sits on that floor with all five folds positive — the most extreme result the sample size allows, not a marginal one. The evidence here is the pattern rather than the *p*: an interval well clear of zero, an effect size of 3.55, every fold positive, and independent replication at +4.17 on a split drawn by someone else, which rests on no assumption about the folds at all. Five folds was set by aguada having 76 instances dataset-wide, not chosen loosely.
 
 Its validity rests on a property of the bands. Sky-view factor, positive openness and slope are computed **isotropically**, so rotating them is label-preserving. Rotating a **hillshade** would not be — a fixed illumination azimuth is baked into the pixels, and the rotated image depicts terrain lit from an angle it never was. This is not incidental: the dataset paper states the point directly, noting that its primary interpretive visualization uses a directional light source and is "therefore not suitable for data augmentation techniques such as rotation and flipping," and that the three isotropic bands were chosen for the data records partly for that reason. The field's most common visualization would have blocked the only intervention that worked here. D4 rather than arbitrary rotation also preserves the cardinal alignment common in Maya architecture, and on square tiles np.rot90 is exact where an affine warp would blur 25 px buildings.
 
@@ -115,7 +121,9 @@ Somrak et al. reached both halves of this independently. They rotated their agua
 
 The transforms were verified label-preserving rather than assumed: rasterize a tile's polygons, rotate that raster, and compare against the same polygons pushed through the coordinate transform. IoU 1.0000 for all four rotations. A rotation that moves pixels but not coordinates trains silently with every label detached from its object, and nothing downstream flags it.
 
-**The trajectories refine the explanation.** Regularization would predict the baseline peaks early and decays. It does decay — but only 1.18 on building, against a 4.91 gain, so it accounts for at most a quarter. The trajectories show the arms identical through iteration 1500, after which the baseline stops improving and arm D does not. The baseline *exhausts* what 1,669 tiles can teach it; D4 keeps finding new information because each epoch presents genuinely different views. That also implies arm D was still climbing when training stopped, so +4.16 is a floor rather than the effect size.
+**The trajectories narrow the explanation.** Regularization would predict the baseline peaks early and decays. It does decay, but only 1.18 on building against a 4.91 gain, so it accounts for at most a quarter. The arms then run identical through iteration 1500, after which the baseline stops improving and arm D does not.
+
+That is the observation. The curves support, but do not establish, the reading that the baseline has exhausted what 1,669 tiles can teach it while D4 keeps presenting new views — a plateau has several possible causes and no experiment here separates them. On the same footing, arm D still improving at the end suggests the effect may be larger at a longer schedule. Both are inferences from a curve, and a longer run is what would settle either.
 
 ---
 
@@ -137,7 +145,9 @@ The dataset has an external split available. The ECML PKDD 2021 discovery challe
 | D — D4 augmentation | 42.87 ± 2.80 | 44.63 | +1.76 |
 | **D − A** | **+4.16** | **+4.17** | — |
 
-The effect reproduces to within 0.01 AP. Both arms score about 1.75 AP higher on the canonical split, and by the same amount — that difference is the optimism of a contiguous index split relative to appearance clustering, now measured rather than asserted. It moves the level and leaves the contrast alone.
+The D4 effect reproduces to within 0.01 AP. Both arms also score about 1.75 AP higher here, and by the same amount, which is the optimism of a contiguous index split relative to appearance clustering — now measured rather than asserted. It moves the level and leaves the contrast alone.
+
+**How much weight that agreement carries.** One retraining per arm, one test realisation, so this comparison has no interval and cannot have one: the +4.17 is a point estimate from a single run against a single run. Its value is not precision but independence — the split was drawn by someone else for another purpose, and the effect survived it. Read the agreement as qualitative corroboration of the cross-validated interval above, not as a second measurement of the same quantity to two decimal places.
 
 **The published metric is a different one, and it does not see the effect at all.** The leaderboard scores semantic IoU on unioned per-class masks, not instance AP. Rescoring the same predictions that way requires resolving a question the challenge documentation leaves open: whether a class IoU is pooled over pixels or averaged over tiles, and if averaged, what an empty prediction on an empty tile scores. All three conventions were computed rather than one assumed; the per-tile convention counting empty-on-empty as agreement is the one that reproduces the leaderboard's scale. The overall column *is* determined — it is the unweighted mean of the three class IoUs, which checks out against every published row.
 
@@ -151,13 +161,11 @@ Score threshold was swept 0.05–0.95, since a submission is a binary mask and e
 | D — D4 | 0.6991 | 0.7096 | 0.9726 | **0.7938** |
 | predict nothing | 0.3495 | 0.4559 | 0.9574 | 0.5876 |
 
-**D beats A by 4.17 AP and is level with it here** — 0.7938 against 0.7968, on a single seed per arm, which reads as no detectable difference rather than as D being lower.
+**Under this metric the D4 gain disappears** — 0.7938 against 0.7968, on a single seed per arm, which reads as no detectable difference rather than as D being lower.
 
-That dissociation is the substantive point. D4 buys instance separation and ranking quality, and a unioned per-class mask cannot see either: merge two adjacent buildings into one blob and the semantic mask is unchanged while AP falls. **The headline result of this milestone is specific to the metric that measured it**, and it is reported that way rather than carried across.
+That dissociation is the substantive point, and it runs both ways: **the headline result of this milestone is specific to the metric that measured it**, and a leaderboard placement is not evidence about instance quality either. The mechanism is developed below, where it bears on the comparison.
 
-It cuts in the other direction too. The leaderboard cannot distinguish a model that separates structures from one that paints the right pixels — so placement on it is not evidence of the property a survey tool actually needs, which is one detection per structure.
-
-**The aguada column is almost entirely agreement about absence.** Aguadas appear in 13 of the 329 test tiles. Predicting no aguada anywhere scores 0.9574 under this convention; this model scores 0.9740, a gain of 0.017 over that null, and the field's best scores 0.9844, a gain of 0.027. All 25 teams sit inside a one-point band above the null. A 0.97 aguada IoU is therefore not in tension with the finding below that aguadas are band-limited — the metric is reporting that 316 of 329 tiles correctly contain nothing. The informative number for that class is instance AP: 32.0 for the control, 36.2 for arm D.
+**The aguada column is almost entirely agreement about absence.** Aguadas appear in 14 of the 329 test tiles. Predicting no aguada anywhere scores 0.9574 under this convention; this model scores 0.9740, a gain of 0.017 over that null, and the field's best scores 0.9844, a gain of 0.027. All 25 teams sit inside a one-point band above the null. A 0.97 aguada IoU is therefore not in tension with the finding below that aguadas are band-limited — the metric is reporting that 315 of 329 tiles correctly contain nothing. The informative number for that class is instance AP: 32.0 for the control, 36.2 for arm D.
 
 **Where this places.** 0.7968 against 0.8110 for 8th of 25. Platforms at 0.716 sit inside the published range of 0.708–0.765; buildings at 0.701 fall just under the 0.707 floor. The threshold was tuned on the test tiles here as it was for the leaderboard entries, which inflates every value in the table including these two.
 
@@ -169,7 +177,7 @@ That number is worth stating carefully, because the two systems were not asked f
 
 **One deliverable subsumes the other.** Union the inventory per class and the challenge mask falls out, which is exactly how the table above was produced. The reverse does not hold, and the cost is measurable in this dataset rather than a matter of opinion: extracting instances from a semantic mask by connected components recovers **7,442 buildings against the 8,275 present, a 10% undercount**, entirely from adjacent structures fusing into one component. That figure is measured on the ground-truth masks, so it is a property of this terrain's density, not of any model. The leading entries are semantic architectures — DeepLabV3+, UneXt50 with ResNet101, HRNet — so recovering an inventory from their output would pay that cost.
 
-**The published metric cannot see the difference.** This is not an assertion; it is the dissociation reported above. Arm D improves instance separation and ranking by 4.17 AP and moves semantic IoU by 0.003. A metric computed on unioned masks is blind to whether two adjacent buildings were found as two objects or one blob, and telling them apart is the whole purpose of a survey inventory.
+The metric follows from the deliverable: computed on unioned masks, it is arithmetically unable to distinguish two adjacent buildings found as two objects from the same two found as one blob. That is the 4.17-versus-0.003 dissociation above, and whether the distinction matters is a question about the task — it matters for an inventory a surveyor walks and not for a pixel-accuracy comparison, and the challenge was scoring the second.
 
 **The score gap decomposes into two measured causes.** A semantic segmentation baseline was trained to separate them: DeepLabV3 with a ResNet-50 backbone — the same backbone as the Mask R-CNN it is compared against, and the same family as the DeepLabV3+ in the leading entries — on the same split, with the same D4 augmentation, scored with the same convention, in 38.6 minutes against the instance arms' 43.9 and 43.5. Only the architecture family changes, and it uses slightly less compute rather than more.
 
@@ -190,9 +198,7 @@ The two causes act on different parts of the gap, and both are real.
 
 ### The trade, stated plainly
 
-Choosing Mask R-CNN over DeepLabV3+ on this dataset costs **1.24 IoU points** — 0.8092 against 0.7968 — and that is a deliberate exchange, not a shortfall. What it buys is structured archaeological data: every detection a separate record with an identifier, a class, a confidence score, a centroid and a footprint, ready to join to whatever else is known about that location. The semantic model scores higher on the semantic metric and produces nothing to join on.
-
-The conversion asymmetry is what makes the exchange one-directional. Union the instance masks per class and the challenge deliverable falls out — that is exactly how the instance row above was produced. Going the other way costs the measured 10% building undercount from connected components, and the semantic arm cannot go that way at all.
+Choosing Mask R-CNN over DeepLabV3+ on this dataset costs **1.24 IoU points** — 0.8092 against 0.7968 — and that is a deliberate exchange, not a shortfall. The semantic model scores higher on the semantic metric and produces nothing to join on; the instance model scores lower and produces the inventory. The exchange is one-directional for the reason given above: the union is free, and the reverse costs a measured 10%.
 
 **Bounds on these figures.** Each arm is a single seed, so the 1.24-point difference is one run against one run rather than a replicated measurement; its direction is consistent with the mechanism and its margin exceeds the seed spread observed on the instance arms, which is the most that can be claimed. The semantic arm's threshold of 0.50 was selected on the test tiles, as the leaderboard entries' thresholds were, which inflates every value in the table including this one — it sits on a plateau running 0.802 to 0.809 across thresholds 0.10 to 0.70, so the choice is not load-bearing. And no instance metric exists for the semantic arm, so nothing here says whether it would be better or worse at finding structures as objects.
 
@@ -270,7 +276,7 @@ Tiling was done by **ground extent** rather than pixel count, which matters more
 | 1.5 m | −35% | −29% |
 | 2.0 m | −51% | −42% |
 
-That leaves a usable envelope of roughly 0.33–1 m once tiling is handled. Aguada is the first casualty of coarse data — 28.1 at native, 19.3 at 1 m, and **0.77 at 2 m**, essentially gone. A weak-contrast class sets a hard resolution floor regardless of what the other classes tolerate.
+That leaves a usable envelope of roughly 0.33–1 m once tiling is handled. Aguada is the first casualty — 28.1 AP at native, 19.3 at 1 m, **0.77 at 2 m** — so a weak-contrast class sets the resolution floor regardless of what the others tolerate.
 
 Two runs were made first: the G1 composite as delivered, and a reconstruction using RVT-generated sky-view factor, positive openness and slope stacked in Chactún's band order, each band rescaled so its valid pixels carried Chactún's mean and standard deviation.
 
@@ -296,12 +302,10 @@ The reasoning about what to do had been right. The function was two paragraphs o
 
 Table 3 also gives a second, flat-terrain column, so which one produced the released bands was checked against the released bytes rather than taken from the caption alone:
 
-- **Per-tile normalization is excluded.** Only 56% / 27% / 29% of tiles contain byte 0 in the three bands. A per-tile min–max stretch would put every tile at both 0 and 255. A fixed global map was applied, which is the premise the rest of the check rests on.
-- **Clipping accumulates where the general-terrain settings predict.** Sky-view factor has 2.85% of pixels at byte 255 against ~1.78% at neighboring values — a spike, not a tail — and slope has 2.58% at 255 in a distribution whose mode is 235. Both endpoints are physically reachable: SVF = 1.0 is unobstructed sky, slope = 0° is flat ground. Positive openness shows no pile-up at either end (0.05%), which is correct, since 93° is rarely exceeded.
-- **The low end separates the two columns decisively.** Under the flat-terrain settings, byte 0 would mean SVF ≤ 0.9 and slope ≥ 15° — neither rare in karst terrain carrying 30 m hills, so both should pile up at 0. Measured: 0.059% and 0.026%. Under general-terrain settings byte 0 means SVF ≤ 0.7 and slope ≥ 50°, which genuinely are rare.
-- **The implied physical values are plausible only for one column.** Inverting the general-terrain stretch gives mean SVF 0.955, openness 87.5°, slope 5.1°, all reasonable for this landscape. The flat-terrain reading implies a mean slope of 1.5°, which is not.
+- **A fixed global map was applied, not a per-tile one.** Only 56% / 27% / 29% of tiles contain byte 0; a per-tile min–max stretch would put every tile at both 0 and 255.
+- **The low end excludes the flat-terrain column.** Under those settings byte 0 would mean SVF ≤ 0.9 and slope ≥ 15°, neither rare in karst carrying 30 m hills, so both should pile up at 0. Measured: 0.059% and 0.026%. Under general terrain byte 0 means SVF ≤ 0.7 and slope ≥ 50°, which genuinely are rare. Clipping pile-ups at the top end agree, and inverting the general-terrain stretch gives mean SVF 0.955, openness 87.5° and slope 5.1° — all plausible here, where the flat-terrain reading implies a mean slope of 1.5°, which is not.
 
-This is consistency evidence rather than inversion — the source DEM is not released, so the bands cannot be recomputed and compared directly. But the alternative is excluded rather than merely disfavored, and four independent signatures point the same way.
+This is consistency evidence rather than inversion: the source DEM is not released, so the bands cannot be recomputed and compared directly. The alternative is excluded rather than merely disfavored.
 
 **Applying it to different terrain reproduces Chactún's statistics without matching them.** The G-LiHT DEM rendered through the Table 3 settings gives band means of 204.2 / 196.1 / 223.5, over the 4.47 km² put through the model, against Chactún's 216.5 / 198.5 / 228.6 — within half a standard deviation on all three bands, with no statistic matched at any point in the process. The implied physical medians agree too: 0.953 SVF, 87.6° openness, 4.16° slope on G-LiHT, against 0.955, 87.5°, 5.12° implied by Chactún's own bytes. A wrong recipe does not land there.
 
@@ -326,23 +330,34 @@ Chactún buildings are about 12.5 m across. The specification arm responds far m
 
 That is a real effect of the encoding and it is the finding. Which encoding is *better* cannot be settled here, because the G-LiHT tile carries no annotations, and the honest summary is that the two available signals point in opposite directions: the counts favour the published recipe, and the imagery, on review, favours the delivered composite.
 
-**What this does not establish.** That tile carries no annotations, so these are detection counts and confidence profiles, not precision and recall. Whether those 471 are right is not something this run can answer, and the visual review above suggests many are not. The comparison is between encodings under identical conditions, which is what the question required; what it establishes is that the encoding controls the model's behaviour, not which encoding produces the better survey.
+**What this does not establish, and the one external check available.** That tile carries no annotations, so these are detection counts and confidence profiles, not precision and recall. The behaviour is measured rigorously; the accuracy is not measured at all.
+
+There is, however, a second opinion. An independently trained detector — a separate model, trained on separate hand annotations, run over this same transect — has its own catalogue of calls here, 139 of them. Agreement with it is not accuracy, and the two are more likely to err together than two arbitrary models because both read relief visualisations of the same kind. But it constrains the reading in a way a count cannot, and it can be measured in both directions: how many of an encoding's detections an independent detector also called, and how many of that detector's calls the encoding found.
+
+Building and platform only, at the same 0.05 score floor and over the same full strip as the table above. **Aguada detections are excluded** — 43, 24 and 10 of the totals respectively — because the independent detector is single-class and has no aguada category, so its silence there carries no information and counting those detections would depress agreement for a reason unrelated to the encoding.
+
+| encoding | structures | corroborated | independent calls found |
+|---|---|---|---|
+| RVT, Table 3 stretch | 428 of 471 | 62.1% | **78.4%** |
+| G1 composite, as delivered | 211 of 235 | **68.2%** | 64.0% |
+| RVT, mean/sd matched | 28 of 38 | 89.3% | 15.8% |
+
+Neither encoding dominates, and the shape of the disagreement is informative. The Table 3 arm finds more of what the independent detector found — 78.4% against 64.0% — while a smaller share of its own detections are corroborated. The delivered composite is the reverse: it misses more and is right more often when it fires. The matched arm is the degenerate case, corroborated 89% of the time because it only fires on the most obvious mounds, and missing five sixths of everything else.
+
+So the encoding is trading precision for recall, and the trade is measurable without labels even though neither quantity is. **Which end of that trade is preferable is a property of the task, not of the encoding.** For a survey inventory whose entries will be walked to, a corroborated detection is worth more than an additional one, and that is the reading under which the delivered composite is the better product — which is also what the imagery shows. For a candidate-generation pass to be filtered later, the ordering reverses.
+
+None of this makes the accuracy question answerable here. What would answer it is annotation of a subset of this transect against the same three-class definitions, which does not currently exist for G-LiHT.
 
 ---
 
 ## What portability actually requires
 
-**A detector is only as portable as the specification of its input.** To run a Chactún-trained model on new terrain, that terrain has to be rendered into the same kind of raster the model saw — same visualizations, same physical ranges, same byte mapping. Get any of those wrong and the model is reading a representation it has never seen, which is what the first two attempts demonstrated and the third corrected.
+The constraint established above is a *specification* problem rather than an information-theoretic one, and that distinction has a practical consequence, because the two halves have different remedies:
 
-The constraint is real but it is a *specification* problem, not an information-theoretic one. The distinction matters because the two have different remedies:
+1. **What the deposit cannot supply is elevation data.** No DEM, DTM or point cloud means Chactún's own tiles can never be re-rendered into another visualization — negative openness, local dominance, a local relief model. That is irreversible, and it is why the aguada limitation cannot be repaired from the release.
+2. **What the deposit does not need to supply is the recipe**, because the paper carries it. Bands can be regenerated on *new* terrain from that specification, which is what portability requires. The 8-bit quantization is permanent but was not the binding constraint.
 
-1. **What the deposit cannot supply is elevation data.** No DEM, DTM or point cloud means the released tiles cannot be re-rendered into any other visualization — negative openness, local dominance, a local relief model. That is irreversible for Chactún's own tiles, and it is why the aguada limitation above cannot be repaired from the release.
-2. **What the deposit does not need to supply is the recipe**, because the paper carries it. The bands can be regenerated on *new* terrain from that specification, which is exactly what portability requires.
-3. **The 8-bit quantization is permanent** but turned out not to be the binding constraint. Applying the published stretch to fresh float data and quantizing it the same way lands in the same place.
-
-So the earlier framing — that the pipeline sits several lossy steps downstream of the point cloud and the model inherits every one — holds for what can be done with Chactún's tiles, and does not hold for what can be done with a Chactún-trained model. Those are different questions, and conflating them cost two runs.
-
-Nothing in-domain revealed any of this. Six arms, 36 training runs, cross-validated evaluation across every class — none of it said anything about portability. That only appeared on contact with somebody else's data, and the diagnosis only completed on a second reading of the dataset paper.
+So "the pipeline sits several lossy steps downstream of the point cloud" holds for what can be done with Chactún's tiles and not for what can be done with a Chactún-trained model. Those are different questions, and conflating them cost two runs.
 
 ---
 
@@ -352,15 +367,9 @@ What follows was not part of the assigned work, and nothing here was built or te
 
 It is recorded as a design specification derived from the results above. Given what was measured, these are the properties a portable regional tool would need to satisfy, and the reasoning that produces each one.
 
-The derivation runs: *the model did not transfer* → *because its input representation was not reproduced* → *therefore portability requires either a reproducible input specification, or a model indifferent to the representation it is given.*
+Two routes follow from the requirement established above. **Specify the input**, which has a demonstrated instance and whose cost is that every user must run the pipeline and every dataset must document it as Table 3 does — a request to the field as much as a design choice. Or **make the model indifferent to the rendering**, which is the untried one.
 
-The first route now has a demonstrated instance: publish the recipe, apply it to new terrain, and the detector's behavior improves markedly. Its cost is that every user must run that pipeline, and every dataset must document it as Table 3 does — which is a request to the field as much as a design choice.
-
-The second route is the direct analogue of the intervention that produced the measurable gain in this milestone, and the analogy is worth spelling out.
-
-Arm D (D4 dihedral augmentation) worked by augmenting over a property the model should not depend on. A mound is a mound whichever way the tile is turned, so showing the model every rotation taught it to ignore orientation rather than requiring every survey to be flown on the same heading.
-
-Portability follows the exact same logic, swapping orientation for visualization style. A mound is a mound whichever rendering recipe created it.
+The second is the direct analogue of D4, with rendering style standing where orientation stood: a mound is a mound whichever recipe drew it.
 
 Training on the same terrain rendered many different ways — different stretches, visualizations, and blends — would teach the model to key on the shape of the relief signature rather than on one rendering's byte patterns. That would let the detector operate across datasets produced by heterogeneous processing pipelines without retraining.
 
@@ -368,14 +377,7 @@ It is also now testable in a way it was not before. Chactún cannot be re-render
 
 It would also carry a real trade. Forced invariance across genuinely different visualizations may cause a model to learn only their intersection, buying robustness at some cost in accuracy. Worth measuring rather than assuming.
 
-Such a tool would aim at high-throughput, out-of-domain candidate retrieval, with four properties:
-
-- **Sensitivity and spatial transferability** across uncurated third-party LiDAR
-- **Feature invariance** across heterogeneous sensor resolutions, point densities and canopy-removal artifacts
-- **No site-specific tuning** required to run on a survey it has not seen
-- **Output suited to downstream use** — candidate centroids and areas that populate a spatial database directly
-
-None of these has been demonstrated here. They are the specification, and each one follows from a measurement reported above.
+Such a tool would aim at high-throughput, out-of-domain candidate retrieval: sensitive and spatially transferable across uncurated third-party LiDAR, invariant to sensor resolution and canopy-removal artifacts, free of site-specific tuning, and emitting candidates that populate a spatial database directly. None of that has been demonstrated here — it is the specification, and each item follows from a measurement reported above.
 
 They are also worth stating as a specification rather than as a wish, because the target is a production tool rather than a benchmark result. The question this milestone was built around is not which architecture scores best on a curated dataset, but what a detector has to satisfy before it can be pointed at somebody else's survey and produce something an archaeologist can act on. Those are different objectives, and the second is the one that requires an input specification, an operating point chosen against the cost of a field visit, and an output that populates a database rather than a score.
 
@@ -385,27 +387,16 @@ They are also worth stating as a specification rather than as a wish, because th
 
 Two milestones, and the same pattern in both. In Milestone B, four candidate mechanisms for inter-city difficulty were tested and ruled out, and the operative factor turned out to be in the imagery. In Milestone C, four model-side interventions came in within noise and the measurable gain came from the data pipeline.
 
-What the milestone establishes, as distinct from what it reports:
+The results are above and are not restated here. What generalises beyond this dataset is shorter:
 
-- **A three-class detector at 92% recall**, with its error modes separated per class into detection failure versus classification failure, and its operating characteristics measured as recall against false positives per km² rather than as AP alone.
-- **A replicated augmentation effect**, +4.16 AP under cross-validation and +4.17 on the challenge's own split — and level under the challenge's own metric, which cannot see instance separation.
-- **A decomposition of the distance to the published leaderboard**, into architecture formulation (0.0124, essentially the whole distance to eighth place) and ensembling with test-time augmentation (the 0.0249 beyond that to first), measured against a semantic baseline at matched compute rather than inferred.
-- **A measurement ceiling for the dataset itself** — how much of COCO AP the annotation precision can actually support, which turns out to be about half the threshold range for the dominant class.
-- **A resolution envelope of roughly 0.33–1 m**, decomposed into the part attributable to object scale and the part to information loss, with ground-extent tiling identified as recovering about two-thirds of the penalty.
-- **A portability constraint with a diagnosed cause**, established by external evaluation rather than inferred — and a demonstrated remedy whose benefit is measured in the model's responsiveness rather than in verified accuracy, because the receiving survey carries no labels to verify against.
-- **An enrichable detection inventory rather than a raster.** Every detection carries a stable identifier, class, score, centroid and footprint, exported as georeferenced vectors, so the threshold stays adjustable after the fact and each row can be joined to whatever else is known about that location. This is the deliverable the metric above cannot measure.
-- **Three findings independently corroborated by the primary sources.** The empty-tile count: the challenge organizers state that 1,211 of their 1,765 tiles contain a structure, so 31.4% are empty against the 31.1% measured here — which means the data descriptor's "2,094 data records with an object in at least one of the segmentation masks" is contradicted by the organizers describing the same data, not only by this project's count. The mask polarity: stated in the challenge documentation as "0 corresponds to the target being present, 255 to not present", matching what was found by inspecting converted output. And the dominant confusion: Somrak et al. report platform misclassified as building as their most common error across most tested scenarios, which is the same direction as the platform-to-building confusions here.
-- **A characterization of the tile population**: 652 of the 2,094 records carry no annotated structure. Roughly a third of the dataset is therefore negative examples, which is why the empty-tile handling described above changes what the model sees.
-
-And the methodological findings:
-
-- **Model-side changes did not move this problem; data-side changes did.** Anchors, cascade refinement, input resolution and rare-class oversampling: all within noise. Augmentation: +4.16.
-- **A result is a result about a metric.** The same intervention that moves instance AP by 4.17 moves semantic IoU by 0.003. Neither number is wrong; they measure different properties, and only one of them is the property a survey tool needs.
+- **Model-side changes did not move this problem; data-side changes did.** Of the interventions tested, only D4 augmentation produced a measurable improvement; anchors, cascade refinement, input resolution and rare-class oversampling all landed within noise. The headroom was not in the architecture.
+- **A result is a result about a metric.** As above, the same intervention moves instance AP by 4.17 and semantic IoU by 0.003. Which of those matters is a question about the task, and it has to be answered before either is quoted.
 - **Report at the operating point the tool will actually use.** AP made a 92%-recall detector look mediocre.
 - **A class can be unrepresented rather than underlearned.** No amount of data fixes a band that does not carry the signal — and here the dataset's own authors documented reaching for the missing band by hand.
-- **In-domain evaluation does not reveal portability limits.** It took contact with foreign data to find the constraint that mattered most.
+- **In-domain evaluation does not reveal portability limits.** Six arms and 36 training runs said nothing about them; contact with foreign data said everything.
 - **Read the dataset paper as documentation, not as background.** The parameter that governed the whole transfer result was in a table, not in the deposit.
-- **On unlabeled ground, a detection count is not a result.** The encoding that produced twice the detections produced the less plausible ones on review. Where there is nothing to score against, the domain reading is the measurement, and it has to be allowed to contradict the arithmetic.
+- **On unlabeled ground, a detection count is not a result.** Where there is nothing to score against, the domain reading is the measurement, and it has to be allowed to contradict the arithmetic.
+- **Engineering evidence and statistical evidence are different things.** Five folds can show a large, consistent, independently replicated effect and still not clear a distribution-free threshold. Both halves of that belong in the write-up.
 
 ---
 
