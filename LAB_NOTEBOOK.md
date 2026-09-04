@@ -2564,3 +2564,100 @@ counts: building 1.699%, platform 2.129%, aguada 0.334%.
   and ensembling carry the gap. The post's framing gets simpler and stronger.
 - **Lands above 0.8341:** the budget was not matched, or something is wrong with
   the comparison. Treat as a fault, not a result.
+
+
+## 2026-09-04 - The semantic baseline decomposes the leaderboard gap
+
+DeepLabV3 with a ResNet-50 backbone, canonical challenge split, D4
+augmentation, 45 epochs in **38.6 min** on the A5000 -- slightly under the 43.9
+and 43.5 min the instance arms took, so the comparison is not bought with extra
+compute. Scored with the same per-tile convention and the same threshold sweep.
+
+### Result
+
+| | buildings | platforms | aguadas | overall |
+|---|---|---|---|---|
+| Leaderboard 1st | 0.7530 | 0.7651 | 0.9844 | 0.8341 |
+| Leaderboard 8th | - | - | - | 0.8110 |
+| **semantic, DeepLabV3-R50** | **0.7167** | **0.7258** | **0.9852** | **0.8092** |
+| arm A, instance unioned | 0.7006 | 0.7158 | 0.9740 | 0.7968 |
+| arm D, instance unioned | 0.6991 | 0.7096 | 0.9726 | 0.7938 |
+| predict nothing | 0.3495 | 0.4559 | 0.9574 | 0.5876 |
+
+Best threshold 0.50, an interior optimum on a plateau running 0.8021 to 0.8092
+across thresholds 0.10-0.70. Not a boundary artefact, unlike arm A's optimum,
+which needed the sweep extended to confirm.
+
+### The gap decomposes
+
+Holding backbone, data, split, augmentation and compute fixed and changing only
+the architecture family gains **+0.0124**, which lands 0.0018 short of the
+eighth entry -- indistinguishable from it on one seed.
+
+- **Instance-versus-semantic formulation** accounts for 0.0124 of the 0.0142
+  gap between the instance pipeline and 8th place.
+- **Ensembling, pseudo-labelling and test-time augmentation** account for the
+  0.0249 that remains between a single semantic model and 1st place.
+
+So both candidate causes are real and they act on different parts of the gap.
+The entry for 2026-09-03 listed them as unseparated; they are separated now.
+
+### Prediction scorecard
+
+Registered in the previous entry before the run.
+
+- **#1 held.** Called 0.80-0.83 and beating both instance arms. Observed 0.8092.
+- **#2 partially.** Buildings were called to gain more than platforms, and did:
+  +0.0161 against +0.0100. The magnitude was called at "+0.02 or better" for
+  buildings and came in under it.
+- **#3 narrowly missed.** Aguada was called between 0.95 and 0.985; observed
+  0.9852, outside by 0.0002. It also exceeds first place's 0.9844, which says
+  more about that column being agreement about absence in 316 of 329 tiles than
+  about this model.
+- **#4 held.** Did not approach 0.8341 at a matched budget.
+- **#5 held trivially.** No instance AP exists for this arm. A semantic model
+  emits no instances, which is the asymmetry the comparison is about.
+
+Three clean, one partial, one narrowly missed.
+
+### What it does not change
+
+The semantic arm scores higher on the semantic metric **and produces no
+inventory**. That is the trade stated in the post, now demonstrated rather than
+argued: 1.24 IoU points is the measured price of instance output on this
+dataset, paid in exchange for detections that carry an identity, a class, a
+score and a footprint.
+
+The conversion asymmetry is unaffected. Union the instance masks and the
+semantic deliverable falls out, which is how the instance rows above were
+produced. Going the other way costs the measured 10% building undercount from
+connected components, and this arm cannot go the other way at all.
+
+### Design forced by measurement, not chosen
+
+Recorded in the previous entry and repeated here because it governs the result:
+**57.2% of building pixels are also platform pixels**, so the classes are not
+mutually exclusive and a softmax head could not reproduce this ground truth.
+Three independent sigmoid channels, which is also the form the challenge scored.
+This is likely why several leading entries used separate models per mask.
+
+### Limits
+
+- **One seed.** The +0.0124 is a single run against single runs. The direction
+  is consistent with the mechanism and the margin over arm A exceeds the seed
+  spread seen on the instance arms, but this is not a replicated measurement.
+- **Threshold 0.50 selected on the test tiles**, as the leaderboard entries'
+  were. That inflates every value in the table including this one; the plateau's
+  width is what keeps it from mattering much.
+- **Matched budget is approximate.** 38.6 min against 43.9 and 43.5. The
+  semantic arm used less, which strengthens rather than weakens the attribution.
+- **No instance metric is available for this arm**, so it cannot be compared on
+  AP, and nothing here says the semantic model would be better or worse at
+  finding structures as objects.
+
+### Files
+
+`scripts/train_chactun_semantic.py` trains and scores in one pass;
+`scripts/chactun_semantic_stats.py` is the overlap and pixel-frequency
+measurement that settled the head design. Weights and the threshold sweep in
+`outputs/chactun_S_deeplabv3_r50/`, log at `outputs/semantic_baseline.log`.
