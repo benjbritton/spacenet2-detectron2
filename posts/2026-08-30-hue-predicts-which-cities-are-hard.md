@@ -113,16 +113,22 @@ The ablation collapses chroma to greyscale **after** the stretch and replicates 
 
 The interpretation of every possible outcome was written down *before the run finished*, so it could not be reasoned backwards afterwards. If hue were causal, the cities that have it — Vegas at 29.4°, Paris at 23.8° — should lose most, while Khartoum at 2.3° has almost nothing to lose, and the gap should close by something like the predicted 42.7%.
 
-| AOI | colour | greyscale | Δ |
-|---|---|---|---|
-| Vegas | 0.8947 | 0.893 | −0.002 |
-| Paris | 0.7773 | 0.777 | −0.000 |
-| Shanghai | 0.6862 | 0.678 | −0.008 |
-| Khartoum | 0.6267 | 0.626 | −0.001 |
-| pooled F1 | 0.7935 | 0.7895 | −0.004 |
-| **Vegas−Khartoum gap** | **0.2680** | **0.2670** | **−0.001** |
+Three seeds per arm, at the fixed 0.544 reporting threshold. *p* is a two-sided Welch test.
 
-**The gap did not move.** Predicted to close by 42.7%; closed by 0.4%. The model retains **99.5% of its performance with no colour at all.**
+| AOI | colour | greyscale | Δ | *p* |
+|---|---|---|---|---|
+| Vegas | 0.8948 | 0.8927 | −0.0022 | 0.020 |
+| Paris | 0.7788 | 0.7736 | −0.0051 | 0.089 |
+| Shanghai | 0.6848 | 0.6743 | −0.0106 | 0.003 |
+| Khartoum | 0.6254 | 0.6213 | −0.0040 | 0.167 |
+| pooled F1 | 0.7942 | 0.7893 | −0.0049 | 0.011 |
+| **Vegas−Khartoum gap** | **0.2695** | **0.2713** | **+0.0019** | — |
+
+**The gap did not move.** A causal account of hue required it to close by about 42.7%. It widened by 0.7%, which is inside the seed spread. The model retains **99.4% of its performance with no colour at all.**
+
+Removing chroma does cost something small and repeatable — 0.61% of pooled F1, separated from zero at *p* = 0.011. So colour is not inert; it is close to irrelevant, which is a different claim and the one the numbers support. The largest single loss is **Shanghai at −1.54%**, and Shanghai is the city whose chroma the per-image stretch amplifies most, from 5.0° to 63.7° of roof-to-ground separation. The network extracts a little from chroma, concentrated where the preprocessing amplified it, and that little comes nowhere near explaining why Khartoum is hard.
+
+*Originally run at one seed against a three-seed colour baseline; replicated at three seeds on 2026-09-03, which resolved Vegas and Shanghai and left Khartoum unresolved. The conclusion is unchanged.*
 
 ## What was actually going on
 

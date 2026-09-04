@@ -230,26 +230,49 @@ reports about 49.50, with nothing to indicate the wrong split was used.
 Expected: segm AP ~81.5. `segm/APs` on balloon is computed over **three**
 validation instances and has CV 59.8% across seeds -- do not read it.
 
-### Grayscale ablation (2026-08-28)
+### Grayscale ablation (2026-08-28, replicated 2026-09-03)
 
 The run that refuted the hue finding, so it belongs here rather than only in the
-notebook.
+notebook. Three seeds, matching the colour baseline's.
 
 ```bash
 ./scripts/run.sh python scripts/train_spacenet.py --grayscale --seed 0 \
     --output outputs/spacenet2_r50fpn_gray \
     --run-name spacenet2-r50fpn-seed0-GRAYSCALE
+
+./scripts/run.sh python scripts/train_spacenet.py --grayscale --seed 1 \
+    --output outputs/spacenet2_r50fpn_gray_seed1 \
+    --run-name spacenet2-r50fpn-seed1-GRAYSCALE
+
+./scripts/run.sh python scripts/train_spacenet.py --grayscale --seed 2 \
+    --output outputs/spacenet2_r50fpn_gray_seed2 \
+    --run-name spacenet2-r50fpn-seed2-GRAYSCALE
 ```
 
-Expected: segm AP 49.11, pooled F1 0.7895, per-AOI 0.893 / 0.777 / 0.678 / 0.626,
-Vegas-Khartoum gap 0.267 against 0.268 for colour.
+Expected, three-seed mean at the fixed 0.544 threshold, against the three-seed
+colour baseline:
+
+| metric | colour | grayscale | delta | p |
+|---|---|---|---|---|
+| Vegas | 0.8948 +/- 0.0007 | 0.8927 +/- 0.0003 | -0.0022 | 0.020 |
+| Paris | 0.7788 +/- 0.0032 | 0.7736 +/- 0.0015 | -0.0051 | 0.089 |
+| Shanghai | 0.6848 +/- 0.0018 | 0.6743 +/- 0.0009 | -0.0106 | 0.003 |
+| Khartoum | 0.6254 +/- 0.0004 | 0.6213 +/- 0.0033 | -0.0040 | 0.167 |
+| macro | 0.7460 +/- 0.0012 | 0.7405 +/- 0.0010 | -0.0055 | 0.004 |
+| pooled F1 | 0.7942 +/- 0.0010 | 0.7893 +/- 0.0003 | -0.0049 | 0.011 |
+| segm AP | 49.504 +/- 0.088 | 49.125 +/- 0.043 | -0.379 | 0.008 |
+
+Per-seed pooled F1: 0.7893 / 0.7896 / 0.7891. Vegas-Khartoum gap 0.2713 +/- 0.0036
+against 0.2695 +/- 0.0009 for colour.
 
 `--grayscale` collapses chroma *after* the stretch and replicates the single
 channel three times, so input shape and the COCO-pretrained stem stay identical
 and colour is the only variable.
 
-One seed against a three-seed colour baseline: only the pooled delta (-0.004,
-about 4 sigma) is established. Small per-city deltas are not.
+*p* is a two-sided Welch test on three seeds a side; degrees of freedom run 2 to 4,
+so a large *t* does not imply a small *p*. Khartoum is unresolved and Paris is
+marginal -- neither is a finding. Shanghai is the largest per-city loss and the
+one that separates cleanly.
 
 ---
 
@@ -360,8 +383,9 @@ falsified by the experiment that checked them.
 What is known bears on the expected result. The per-image stretch is effectively a
 per-tile white balance, and it AMPLIFIES roof-to-ground hue separation by 5x to
 13x over raw sensor values (2026-08-28 entry). The grayscale ablation then showed
-the detector extracts almost nothing from chroma: removing colour entirely costs
-0.004 pooled F1 and closes the Vegas-Khartoum gap by 0.4 percent. A model
+the detector extracts very little from chroma: removing colour entirely costs
+0.0049 pooled F1 (0.61 percent relative, three seeds a side) and does not close
+the Vegas-Khartoum gap at all. A model
 indifferent to colour should be largely indifferent to which colour normalisation
 it is handed, so the honest prior is that this comparison returns nothing.
 

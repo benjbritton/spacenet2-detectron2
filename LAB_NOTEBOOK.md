@@ -2315,8 +2315,17 @@ At the fixed 0.544 threshold, from the 2026-08-28 entry:
 
 | | colour, 3 seeds | grayscale, 1 seed | delta | sigma (colour's) |
 |---|---|---|---|---|
-| segm AP | 49.504 +/- 0.088 | 49.179 | -0.325 | 3.7 |
-| pooled F1 | 0.7942 +/- 0.0010 | 0.7904 | -0.0038 | 3.8 |
+| segm AP | 49.504 +/- 0.088 | 49.109 | -0.395 | 4.5 |
+| pooled F1 | 0.7942 +/- 0.0010 | 0.7893 | -0.0049 | 4.9 |
+
+> **Corrected 2026-09-03, after the runs.** This table as first committed cited
+> segm AP 49.179 and pooled F1 0.7904 for the grayscale arm, with deltas -0.325
+> and -0.0038. Those are the **blocked-split** run's figures, from a different
+> experiment in this notebook; they were transcribed into the wrong row. The
+> grayscale seed-0 values at the fixed 0.544 threshold are 49.109 and 0.7893,
+> shown above. Prediction 1's central value inherits the bad anchor and is
+> therefore scored on its spread claim rather than its point estimate; the other
+> five predictions were stated as ranges and are unaffected.
 
 ### Predictions
 
@@ -2361,3 +2370,102 @@ At the fixed 0.544 threshold, from the 2026-08-28 entry:
   significant, and the "about 4 sigma" phrasing in the notebook, REPRODUCE.md
   and the Milestone B post all have to come out. This is the outcome that costs
   the most to write up, and it is the reason for recording the prediction.
+
+
+## 2026-09-03 - Grayscale replicated at three seeds: two predictions of six held
+
+Seeds 1 and 2 ran sequentially on the A5000, 2:35:38 and 1:54:48 (the first
+absorbed a period of GPU contention and is not representative of the workload).
+Scored at the fixed 0.544 threshold, the same as every other figure in this
+notebook.
+
+### Results
+
+Uncertainties are sample sd across three seeds; *p* is two-sided Welch, which
+does not assume equal variances.
+
+| metric | colour | grayscale | delta | rel | *p* |
+|---|---|---|---|---|---|
+| Vegas | 0.8948 +/- 0.0007 | 0.8927 +/- 0.0003 | -0.0022 | -0.24% | 0.020 |
+| Paris | 0.7788 +/- 0.0032 | 0.7736 +/- 0.0015 | -0.0051 | -0.66% | 0.089 |
+| Shanghai | 0.6848 +/- 0.0018 | 0.6743 +/- 0.0009 | **-0.0106** | -1.54% | **0.003** |
+| Khartoum | 0.6254 +/- 0.0004 | 0.6213 +/- 0.0033 | -0.0040 | -0.64% | 0.167 |
+| macro | 0.7460 +/- 0.0012 | 0.7405 +/- 0.0010 | -0.0055 | -0.73% | 0.004 |
+| pooled F1 | 0.7942 +/- 0.0010 | 0.7893 +/- 0.0003 | -0.0049 | -0.61% | 0.011 |
+| segm AP | 49.504 +/- 0.088 | 49.125 +/- 0.043 | -0.379 | -0.77% | 0.008 |
+
+Per-seed grayscale pooled F1: 0.7893 / 0.7896 / 0.7891.
+
+**Degrees of freedom run 2 to 4**, so a large *t* does not imply a small *p*.
+Khartoum is unresolved; Paris is marginal. Neither is a finding.
+
+### Prediction scorecard
+
+Held:
+
+- **#2, pooled delta in -0.003 to -0.005.** Observed -0.0049.
+- **#6, the headline does not move.** Vegas-Khartoum gap 0.2695 -> 0.2713. It
+  widened by 0.7% where a causal account of hue needed it to close by ~42.7%.
+  The grayscale gap's own spread (+/- 0.0036) contains the movement.
+
+Did not hold, all leaning the same way:
+
+- **#1, grayscale sd called at 0.0005-0.0020.** Observed 0.00025 -- four times
+  tighter than colour. The stated reasoning, that an arm seeing strictly less
+  input variation should not be noisier, pointed the right way; the floor was
+  set too high.
+- **#3, significance called to fall to 2-4 sigma.** It rose: Welch *t* -7.88 on
+  pooled F1. Direct consequence of #1 -- a more reproducible arm shrinks the
+  standard error of the difference.
+- **#4, Shanghai called between -0.004 and -0.008.** Observed -0.0106, larger
+  than the single-seed value rather than regressing toward the mean.
+- **#5, other three cities called within +/- 0.003 and unresolved.** Paris
+  (-0.0051) and Khartoum (-0.0040) exceeded the band; Vegas is small at -0.0022
+  but now resolved at *p* = 0.020.
+
+Two of six. The four that missed all point the same direction: the effect is
+more precisely measurable, and slightly larger, than one seed could show.
+
+### What changes
+
+**The conclusion holds and is better supported.** Chroma is not the mechanism
+behind the city difficulty ordering.
+
+**"Colour contributes almost nothing" retires.** It was a fair reading of one
+run and is too strong for three. Removing chroma costs 0.61% of pooled F1,
+resolvable at *p* = 0.011. Retained performance is **99.4%**, not 99.5%. The
+number barely moves; what moves is that the residue is now measurable rather
+than inside the noise.
+
+**Shanghai is the one mechanism-shaped signal.** Largest per-city loss by a
+factor of two, *p* = 0.003, and it is the city whose chroma the per-image
+stretch amplifies most (5.0 -> 63.7 degrees). A model ignoring colour entirely
+has no reason to lose most where colour was most amplified. The narrow reading:
+the network extracts a little from chroma, concentrated where preprocessing
+amplified it, nowhere near enough to explain Khartoum.
+
+This weakens the prior recorded for the per-image versus per-city stretch
+comparison -- that a colour-indifferent model should be indifferent to which
+normalisation it receives. The arm is not indifferent, and it is least
+indifferent exactly where the stretch does the most work.
+
+### Limits
+
+- Three seeds is still three. These *p*-values are sensitive to one unusual run.
+- Threshold fixed at 0.544, selected on train, not tuned per arm. Correct for
+  comparability; neither arm is shown at its own optimum.
+- Chroma as this pipeline presents it. HSV as direct input is untested and is a
+  different question.
+- COCO-RGB-pretrained backbone, single channel replicated to three. The claim is
+  that chroma is not *necessary*, not that the network never uses it.
+- Shanghai's amplification link is correlational: one city, one stretch
+  measurement. Testing it means varying the stretch and watching whether the
+  loss tracks.
+
+### Files
+
+Runs in `outputs/spacenet2_r50fpn_gray_seed{1,2}/`, logs at
+`outputs/gray_seed{1,2}.log`. Write-up at
+`posts/2026-09-03-replicating-the-grayscale-ablation.md`. Scored with
+`scripts/score_f1.py --threshold 0.544`, per-city via the `spacenet2_val_AOI_*`
+datasets.
