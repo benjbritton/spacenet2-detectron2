@@ -49,11 +49,19 @@ Milestone B established spatially blocked splits as the appropriate way to hold 
 
 That negative could have been manufactured by per-tile contrast stretching, which would hide a real seam — so that was ruled out separately. Only 34% of tiles are pinned to exactly 0–255 across all bands, and per-tile ranges vary with the terrain, so a shared seam would have survived. The tiles genuinely are not neighbors.
 
-This is almost certainly deliberate geomasking. Publishing precise coordinates for thousands of undocumented Maya structures is a looting risk, and withholding georeferencing is standard practice for unexcavated sites. It is a protective measure implemented by Kokalj et al., not an oversight. Because standard geographic re-stitching was impossible, evaluating spatial data leakage required ruling out edge seams entirely and forcing an alternative appearance-based partition.
+This is deliberate geomasking. Publishing precise coordinates for thousands of undocumented Maya structures is a looting risk, and withholding georeferencing is standard practice for unexcavated sites. It is a protective measure implemented by Kokalj et al., not an oversight. Because standard geographic re-stitching was impossible, evaluating spatial data leakage required ruling out edge seams entirely and forcing an alternative appearance-based partition.
 
 The substitute partitions on **appearance**: cluster the tiles, then assign whole clusters to one side. Its effect was measured against a random control rather than assumed. Mean cross-split similarity moves from 0.743 to 0.761, p95 from 0.915 to 0.907, and the maximum from 0.978 to 0.954 — the tail tightens, the centre holds.
 
 That measurement is itself the finding. Chactún tiles resemble one another closely enough that every validation tile has a near-twin in training under any partition, so the residual similarity is a property of the dataset rather than of the partitioning strategy. **Validation scores here carry that optimism whatever the split**, which is why it is stated in the results rather than left to a footnote.
+
+### The dataset's own authors used the split the release cannot express
+
+The above was established from the pixels, before reading how the original team had handled it. They handled it geographically. [Somrak, Džeroski and Kokalj (*Remote Sensing* 12:2215, 2020)](https://doi.org/10.3390/rs12142215), classifying these same structures, split roughly 80/20 **by map polygon**: a sample joins the training set if it falls entirely inside the training-area boundary and the test set if it falls entirely inside the test-area boundary, with their reasoning stated plainly — buildings sit on platforms, so their image samples overlap and must not be separated across the split.
+
+That split cannot be reconstructed from the public release. It is defined in map space, and the release has geolocation stripped and tile identifiers randomized, so no tile can be assigned to either area. **The people who built this dataset used a spatially blocked split, and the form they published it in cannot express one.**
+
+That is a stronger statement than the two negative tests above, and it comes from the other direction. The appearance-based substitute is not a workaround for an oversight; it is the only partition the released artifact supports.
 
 ---
 
@@ -103,6 +111,8 @@ That closes the scale family. Object scale can bind through the anchors that pro
 
 Its validity rests on a property of the bands. Sky-view factor, positive openness and slope are computed **isotropically**, so rotating them is label-preserving. Rotating a **hillshade** would not be — a fixed illumination azimuth is baked into the pixels, and the rotated image depicts terrain lit from an angle it never was. This is not incidental: the dataset paper states the point directly, noting that its primary interpretive visualization uses a directional light source and is "therefore not suitable for data augmentation techniques such as rotation and flipping," and that the three isotropic bands were chosen for the data records partly for that reason. The field's most common visualization would have blocked the only intervention that worked here. D4 rather than arbitrary rotation also preserves the cardinal alignment common in Maya architecture, and on square tiles np.rot90 is exact where an affine warp would blur 25 px buildings.
 
+Somrak et al. reached both halves of this independently. They rotated their aguada samples by 90°, 180° and 270° — turning 51 real aguadas into 380 training samples — precisely because the class count was too low, which is the reasoning behind arm D applied to the same rare class. And they declined rotation and flip for their other classes on the grounds that hillshading would produce inconsistent relief shading, adjusting the sun azimuth when they did rotate. That is this section's argument arrived at from the opposite side: the gain here exists because these three bands are the ones where the objection does not apply.
+
 The transforms were verified label-preserving rather than assumed: rasterize a tile's polygons, rotate that raster, and compare against the same polygons pushed through the coordinate transform. IoU 1.0000 for all four rotations. A rotation that moves pixels but not coordinates trains silently with every label detached from its object, and nothing downstream flags it.
 
 **The trajectories refine the explanation.** Regularization would predict the baseline peaks early and decays. It does decay — but only 1.18 on building, against a 4.91 gain, so it accounts for at most a quarter. The trajectories show the arms identical through iteration 1500, after which the baseline stops improving and arm D does not. The baseline *exhausts* what 1,669 tiles can teach it; D4 keeps finding new information because each epoch presents genuinely different views. That also implies arm D was still climbing when training stopped, so +4.16 is a floor rather than the effect size.
@@ -110,6 +120,12 @@ The transforms were verified label-preserving rather than assumed: rasterize a t
 ---
 
 ## Checking the result against somebody else's split, and somebody else's metric
+
+There is exactly one external anchor available, and establishing that took reading the two papers that work on this data.
+
+Somrak et al. 2020 is not one, for three reasons beyond the unreconstructable split: their unit is a per-object cropped patch and there are 21,495 of them, not 480×480 tiles; their task is four-class patch classification with VGG-19 at 128×128 — aguada, building, platform, terrain — rather than detection or instance segmentation; and their metrics are overall accuracy and per-class recall, with no mAP, F1 or IoU anywhere in the paper. The data descriptor publishes no model at all.
+
+So **no published Chactún detection benchmark with a reproducible split exists.** What remains is the challenge, and it works only because it was scored on tiles 1765–2093, which the release does contain.
 
 Every number above rests on splits built here: five appearance-clustered folds, constructed and evaluated in this project. A result measured that way carries a specific risk — that it is a property of the partition rather than of the intervention.
 
@@ -143,7 +159,26 @@ It cuts in the other direction too. The leaderboard cannot distinguish a model t
 
 **The aguada column is almost entirely agreement about absence.** Aguadas appear in 13 of the 329 test tiles. Predicting no aguada anywhere scores 0.9574 under this convention; this model scores 0.9740, a gain of 0.017 over that null, and the field's best scores 0.9844, a gain of 0.027. All 25 teams sit inside a one-point band above the null. A 0.97 aguada IoU is therefore not in tension with the finding below that aguadas are band-limited — the metric is reporting that 316 of 329 tiles correctly contain nothing. The informative number for that class is instance AP: 32.0 for the control, 36.2 for arm D.
 
-**Where this places.** 0.7968 against 0.8110 for 8th of 25 — a single Mask R-CNN R50-FPN against ensembles with pseudo-labelling and test-time augmentation. Platforms at 0.716 sit inside the published range of 0.708–0.765; buildings at 0.701 fall just under the 0.707 floor. The threshold was tuned on the test tiles here as it was for the leaderboard entries, which inflates every value in the table including these two.
+**Where this places.** 0.7968 against 0.8110 for 8th of 25. Platforms at 0.716 sit inside the published range of 0.708–0.765; buildings at 0.701 fall just under the 0.707 floor. The threshold was tuned on the test tiles here as it was for the leaderboard entries, which inflates every value in the table including these two.
+
+### What the comparison can and cannot say
+
+That number is worth stating carefully, because the two systems were not asked for the same thing.
+
+**The deliverables differ.** A challenge submission is a per-tile binary mask, one raster per class — that is what the metric consumes and therefore what the entries were built to produce. This pipeline produces an instance inventory: every detection a separate record carrying a stable identifier, a class, a confidence score, a centroid and a footprint.
+
+**One deliverable subsumes the other.** Union the inventory per class and the challenge mask falls out, which is exactly how the table above was produced. The reverse does not hold, and the cost is measurable in this dataset rather than a matter of opinion: extracting instances from a semantic mask by connected components recovers **7,442 buildings against the 8,275 present, a 10% undercount**, entirely from adjacent structures fusing into one component. That figure is measured on the ground-truth masks, so it is a property of this terrain's density, not of any model. The leading entries are semantic architectures — DeepLabV3+, UneXt50 with ResNet101, HRNet — so recovering an inventory from their output would pay that cost.
+
+**The published metric cannot see the difference.** This is not an assertion; it is the dissociation reported above. Arm D improves instance separation and ranking by 4.17 AP and moves semantic IoU by 0.003. A metric computed on unioned masks is blind to whether two adjacent buildings were found as two objects or one blob, and telling them apart is the whole purpose of a survey inventory.
+
+**The score gap has at least two candidate causes, and this work does not separate them.**
+
+1. *Architecture family.* Mask R-CNN predicts each mask in a small fixed region grid and upsamples it, so boundary precision is weakest on small objects. Buildings are the small class, and buildings are where the deficit sits — just below the published floor, while platforms sit mid-range. The per-class pattern runs the way this explanation predicts.
+2. *Capacity and effort.* A single Mask R-CNN R50-FPN against five-fold ensembles with pseudo-labelling and test-time augmentation. A 0.014 difference is well within what that alone could produce.
+
+Both predict a broadly similar per-class pattern, so the evidence here does not choose between them. Settling it needs a semantic segmentation baseline trained on the same split and scored identically — one or two runs, not yet done. Until then the honest statement is that a single-model instance pipeline lands about one and a half points below the eighth of twenty-five ensembles on a metric built for a different output, and the reasons are not decomposed.
+
+What can be said without qualification is that the two outputs are not interchangeable, and that the direction of conversion between them is one-way and lossy.
 
 ---
 
@@ -329,6 +364,8 @@ What the milestone establishes, as distinct from what it reports:
 - **A measurement ceiling for the dataset itself** — how much of COCO AP the annotation precision can actually support, which turns out to be about half the threshold range for the dominant class.
 - **A resolution envelope of roughly 0.33–1 m**, decomposed into the part attributable to object scale and the part to information loss, with ground-extent tiling identified as recovering about two-thirds of the penalty.
 - **A portability constraint with a diagnosed cause and a demonstrated remedy**, established by external evaluation rather than inferred.
+- **An enrichable detection inventory rather than a raster.** Every detection carries a stable identifier, class, score, centroid and footprint, exported as georeferenced vectors, so the threshold stays adjustable after the fact and each row can be joined to whatever else is known about that location. This is the deliverable the metric above cannot measure.
+- **Three findings independently corroborated by the primary sources.** The empty-tile count: the challenge organizers state that 1,211 of their 1,765 tiles contain a structure, so 31.4% are empty against the 31.1% measured here — which means the data descriptor's "2,094 data records with an object in at least one of the segmentation masks" is contradicted by the organizers describing the same data, not only by this project's count. The mask polarity: stated in the challenge documentation as "0 corresponds to the target being present, 255 to not present", matching what was found by inspecting converted output. And the dominant confusion: Somrak et al. report platform misclassified as building as their most common error across most tested scenarios, which is the same direction as the platform-to-building confusions here.
 - **A characterization of the tile population**: 652 of the 2,094 records carry no annotated structure. Roughly a third of the dataset is therefore negative examples, which is why the empty-tile handling described above changes what the model sees.
 
 And the methodological findings:
