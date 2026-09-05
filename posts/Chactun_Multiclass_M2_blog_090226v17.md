@@ -402,7 +402,7 @@ The results are above and are not restated here. What generalises beyond this da
 
 ## Reproducing this
 
-Code, configurations and the full lab notebook are in the repository: **[benjbritton/spacenet2-detectron2](https://github.com/benjbritton/spacenet2-detectron2)**. All training runs, with their metrics and configurations, are logged at **[wandb.ai/benjbritton-geoai/benjbritton_FA26](https://wandb.ai/benjbritton-geoai/benjbritton_FA26)**.
+Code, configurations and the full lab notebook are in the repository: **[benjbritton/spacenet2-detectron2](https://github.com/benjbritton/spacenet2-detectron2)**. All training runs, with their metrics and configurations, are logged at **[wandb.ai/benjbritton-geoai/chactun-multiclass](https://wandb.ai/benjbritton-geoai/chactun-multiclass)**.
 
 The dataset is Chactún, [Kokalj et al. 2023](https://doi.org/10.1038/s41597-023-02455-x), CC BY 4.0, available from [figshare](https://doi.org/10.6084/m9.figshare.22202395). The visualization settings used throughout the portability section are Table 3 of that paper.
 
