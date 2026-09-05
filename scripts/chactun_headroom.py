@@ -41,10 +41,13 @@ import numpy as np
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(_HERE)   # repo root, whatever it is called
+
 CLASSES = {1: "building", 2: "platform", 3: "aguada"}
 IOUS = np.arange(0.5, 1.0, 0.05)
-ARM_DIR = "/w/repos/benjbritton_FA26/outputs/chactun_A_maskrcnn_default_anchors"
-COCO_DIR = "/w/data/chactun/coco"
+ARM_DIR = ROOT + "/outputs/chactun_A_maskrcnn_default_anchors"
+COCO_DIR = ROOT + "/data/chactun/coco"
 
 
 def poly_area_perim(seg):

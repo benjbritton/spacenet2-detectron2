@@ -21,8 +21,12 @@ at each IoU threshold before the model makes a single error.
 import json
 
 import numpy as np
+import os
 
-COCO = "/w/data/chactun/coco/chactun_cc.json"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(_HERE)   # repo root, whatever it is called
+
+COCO = ROOT + "/data/chactun/coco/chactun_cc.json"
 THRESHOLDS = [0.5, 0.6, 0.75, 0.9]
 
 

@@ -13,8 +13,12 @@ the bulk of the structures on an anchor at all.
 import json
 
 import numpy as np
+import os
 
-COCO = "/w/data/chactun/coco/chactun_cc.json"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(_HERE)   # repo root, whatever it is called
+
+COCO = ROOT + "/data/chactun/coco/chactun_cc.json"
 ANCHORS = [32, 64, 128, 256, 512]          # detectron2 FPN default, P2..P6
 PX_M2 = 0.25
 NATIVE = 480

@@ -39,6 +39,13 @@ from detlab.datasets import spacenet
 from detlab.spacenet_f1 import SpaceNetF1Evaluator
 from detlab.trainer import LabTrainer
 
+# This experiment's identity. The W&B project is resolved from it via
+# configs/wandb_projects.json, so a run cannot inherit another
+# experiment's project from a stale environment variable.
+from detlab.wandb_registry import resolve as resolve_project
+EXPERIMENT_KEY = "spacenet2"
+
+
 BASE = "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CONFIG = os.path.join(REPO, "configs", "spacenet2_mask_rcnn_R50_FPN.yaml")
@@ -102,7 +109,8 @@ def parse_args():
     p.add_argument("--data-root", default=os.path.join(REPO, "data", "spacenet2"))
     p.add_argument("--output", default=None)
     p.add_argument("--project",
-                   default=os.environ.get("WANDB_PROJECT", "benjbritton_FA26"))
+                   default=None,
+                   help="override the registry; normally leave unset")
     p.add_argument("--run-name", default=None)
     p.add_argument("--offline", action="store_true")
     p.add_argument("--no-wandb", action="store_true")
@@ -235,7 +243,7 @@ def main():
         with open(os.path.join(REPO, "configs", "spacenet2_split.json")) as f:
             split = json.load(f)
         run = wandb.init(
-            project=args.project,
+            project=resolve_project(EXPERIMENT_KEY, args.project),
             name=args.run_name or "spacenet2-r50fpn-%s-seed%d-%s" % (
                 args.stretch, cfg.SEED, time.strftime("%Y%m%d-%H%M%S")),
             config={

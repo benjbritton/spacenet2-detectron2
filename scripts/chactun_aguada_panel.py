@@ -22,9 +22,12 @@ import rasterio
 from matplotlib.patches import Rectangle
 from pycocotools import mask as maskutil
 
-COCO = "/w/data/chactun/coco/chactun_cc.json"
-LIDAR = "/w/data/chactun/lidar"
-OUT = "/w/repos/benjbritton_FA26/figures"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(_HERE)   # repo root, whatever it is called
+
+COCO = ROOT + "/data/chactun/coco/chactun_cc.json"
+LIDAR = ROOT + "/data/chactun/lidar"
+OUT = ROOT + "/figures"
 BANDS = ["sky-view factor", "positive openness", "slope"]
 CROP = 200
 

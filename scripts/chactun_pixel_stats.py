@@ -20,7 +20,10 @@ import os
 import numpy as np
 import rasterio
 
-LIDAR = "/w/data/chactun/lidar"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(_HERE)   # repo root, whatever it is called
+
+LIDAR = ROOT + "/data/chactun/lidar"
 BANDS = ["sky-view factor", "positive openness", "slope"]
 
 

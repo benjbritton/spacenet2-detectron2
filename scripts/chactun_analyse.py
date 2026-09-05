@@ -40,9 +40,12 @@ from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 from scipy import stats
 
-REPO = "/w/repos/benjbritton_FA26"
-FULL_GT = "/w/data/chactun/coco/chactun_cc.json"
-COCO_DIR = "/w/data/chactun/coco"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(_HERE)   # repo root, whatever it is called
+
+REPO = ROOT
+FULL_GT = ROOT + "/data/chactun/coco/chactun_cc.json"
+COCO_DIR = ROOT + "/data/chactun/coco"
 ALL_ARMS = OrderedDict([
     ("A", ("outputs/chactun_A_maskrcnn_default_anchors", "default anchors (control)")),
     ("B", ("outputs/chactun_B_maskrcnn_shifted_anchors", "shifted anchors")),

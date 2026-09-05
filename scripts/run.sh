@@ -88,7 +88,7 @@ exec docker run --rm ${TTY_FLAGS} ${USER_FLAGS} \
   -v "${CACHE}:/cache" \
   -v "${NETRC}:/cache/.netrc" \
   -e HOME=/cache \
-  -e WANDB_PROJECT="${WANDB_PROJECT:-benjbritton_FA26}" \
+  ${WANDB_PROJECT:+-e WANDB_PROJECT="${WANDB_PROJECT}"} \
   -e WANDB_ENTITY="${WANDB_ENTITY:-benjbritton-geoai}" \
   -w /workspace \
   "$IMAGE" "$@"

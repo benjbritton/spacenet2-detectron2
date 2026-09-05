@@ -24,8 +24,11 @@ import numpy as np
 import rasterio
 from pycocotools import mask as maskutil
 
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(_HERE)   # repo root, whatever it is called
+
 COLOURS = {"building": "#00e5ff", "platform": "#ffd60a", "aguada": "#ff2d55"}
-ROOT = "/w/data/chactun"
+ROOT = ROOT + "/data/chactun"
 
 
 def iou_box(a, b):
@@ -40,13 +43,13 @@ def iou_box(a, b):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--gt", default="/w/data/chactun/coco/fold0_val.json")
-    p.add_argument("--pred", default="/w/repos/benjbritton_FA26/outputs/"
+    p.add_argument("--gt", default=ROOT + "/data/chactun/coco/fold0_val.json")
+    p.add_argument("--pred", default=ROOT + "/outputs/"
                                      "chactun_D_maskrcnn_d4_augmentation/"
                                      "fold0_seed0/inference/"
                                      "coco_instances_results.json")
     p.add_argument("--score", type=float, default=0.30)
-    p.add_argument("--out", default="/w/repos/benjbritton_FA26/figures/"
+    p.add_argument("--out", default=ROOT + "/figures/"
                                     "chactun_detections_on_chactun.png")
     a = p.parse_args()
 

@@ -57,6 +57,13 @@ from detectron2.utils.logger import setup_logger
 from detlab.datasets import chactun
 from detlab.trainer import LabTrainer
 
+# This experiment's identity. The W&B project is resolved from it via
+# configs/wandb_projects.json, so a run cannot inherit another
+# experiment's project from a stale environment variable.
+from detlab.wandb_registry import resolve as resolve_project
+EXPERIMENT_KEY = "chactun"
+
+
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 # arm -> (model zoo base, repo config). The zoo base differs ONLY for C.
@@ -121,8 +128,8 @@ def parse_args():
     p.add_argument("--lr", type=float, default=None)
     p.add_argument("--data-root", default=os.path.join(REPO, "data", "chactun"))
     p.add_argument("--output", default=None)
-    p.add_argument("--project", default=os.environ.get("WANDB_PROJECT",
-                                                       "benjbritton_FA26"))
+    p.add_argument("--project", default=None,
+                   help="override the registry; normally leave unset")
     p.add_argument("--run-name", default=None)
     p.add_argument("--offline", action="store_true")
     p.add_argument("--no-wandb", action="store_true")
@@ -239,7 +246,7 @@ def main():
         import wandb
 
         run = wandb.init(
-            project=args.project,
+            project=resolve_project(EXPERIMENT_KEY, args.project),
             name=args.run_name or "chactun-%s-fold%d-seed%d-%s" % (
                 args.arm, args.fold, cfg.SEED, time.strftime("%Y%m%d-%H%M%S")),
             config={

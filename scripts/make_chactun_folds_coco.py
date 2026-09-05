@@ -25,6 +25,9 @@ import copy
 import json
 import os
 
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(_HERE)   # repo root, whatever it is called
+
 
 def write(path, base, images, annotations):
     d = copy.deepcopy({k: v for k, v in base.items()
@@ -38,9 +41,9 @@ def write(path, base, images, annotations):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--coco", default="/w/data/chactun/coco/chactun_cc.json")
-    p.add_argument("--folds", default="/w/data/chactun/splits/folds5.json")
-    p.add_argument("--out-dir", default="/w/data/chactun/coco")
+    p.add_argument("--coco", default=ROOT + "/data/chactun/coco/chactun_cc.json")
+    p.add_argument("--folds", default=ROOT + "/data/chactun/splits/folds5.json")
+    p.add_argument("--out-dir", default=ROOT + "/data/chactun/coco")
     a = p.parse_args()
 
     base = json.load(open(a.coco))

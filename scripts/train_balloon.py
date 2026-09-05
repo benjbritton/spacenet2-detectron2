@@ -24,6 +24,13 @@ from detectron2.utils.visualizer import ColorMode, Visualizer
 from detlab.datasets import balloon
 from detlab.trainer import LabTrainer
 
+# This experiment's identity. The W&B project is resolved from it via
+# configs/wandb_projects.json, so a run cannot inherit another
+# experiment's project from a stale environment variable.
+from detlab.wandb_registry import resolve as resolve_project
+EXPERIMENT_KEY = "balloon"
+
+
 BASE = "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -38,7 +45,8 @@ def parse_args():
     # argparse default outranks the environment, which is how the rename
     # to benjbritton_FA26 got missed here the first time.
     p.add_argument("--project",
-                   default=os.environ.get("WANDB_PROJECT", "benjbritton_FA26"))
+                   default=None,
+                   help="override the registry; normally leave unset")
     p.add_argument("--seed", type=int, default=-1,
                    help="RNG seed; -1 (default) means a fresh random seed per run")
     p.add_argument("--run-name", default=None)
@@ -119,7 +127,7 @@ def main():
         import wandb
 
         run = wandb.init(
-            project=args.project,
+            project=resolve_project(EXPERIMENT_KEY, args.project),
             name=args.run_name or f"balloon-maskrcnn-r50-{time.strftime('%Y%m%d-%H%M%S')}",
             config={
                 "base_config": BASE,

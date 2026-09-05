@@ -20,11 +20,14 @@ import numpy as np
 import rasterio
 from pycocotools import mask as maskutil
 
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(_HERE)   # repo root, whatever it is called
+
 # BGR order for cv2
 COLOURS = {"building": (255, 229, 0), "platform": (10, 214, 255),
            "aguada": (85, 45, 255)}
 GT_COLOUR = (255, 255, 255)
-ROOT = "/w/data/chactun"
+ROOT = ROOT + "/data/chactun"
 
 
 def iou_box(a, b):
@@ -51,14 +54,14 @@ def dashed(img, p0, p1, colour, dash=6):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--gt", default="/w/data/chactun/coco/fold0_val.json")
-    p.add_argument("--pred", default="/w/repos/benjbritton_FA26/outputs/"
+    p.add_argument("--gt", default=ROOT + "/data/chactun/coco/fold0_val.json")
+    p.add_argument("--pred", default=ROOT + "/outputs/"
                                      "chactun_D_maskrcnn_d4_augmentation/"
                                      "fold0_seed0/inference/"
                                      "coco_instances_results.json")
     p.add_argument("--score", type=float, default=0.30)
     p.add_argument("--n", type=int, default=6)
-    p.add_argument("--out-dir", default="/w/repos/benjbritton_FA26/outputs/chactun_tiles")
+    p.add_argument("--out-dir", default=ROOT + "/outputs/chactun_tiles")
     a = p.parse_args()
 
     gt = json.load(open(a.gt))

@@ -16,7 +16,10 @@ import numpy as np
 import rasterio
 from scipy import ndimage
 
-ROOT = "/w/data/chactun"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(_HERE)   # repo root, whatever it is called
+
+ROOT = ROOT + "/data/chactun"
 CLASSES = ["building", "platform", "aguada"]
 MIN_AREA = 9
 

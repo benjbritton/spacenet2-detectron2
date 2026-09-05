@@ -27,8 +27,11 @@ import numpy as np
 from pycocotools import mask as maskutil
 from pycocotools.coco import COCO
 
-REPO = "/w/repos/benjbritton_FA26"
-FULL_GT = "/w/data/chactun/coco/chactun_cc.json"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(_HERE)   # repo root, whatever it is called
+
+REPO = ROOT
+FULL_GT = ROOT + "/data/chactun/coco/chactun_cc.json"
 ARMS = {
     "A": "outputs/chactun_A_maskrcnn_default_anchors",
     "D": "outputs/chactun_D_maskrcnn_d4_augmentation",

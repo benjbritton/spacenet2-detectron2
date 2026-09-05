@@ -1,0 +1,11 @@
+{
+  "_note": "Which W&B project each experiment family logs to. An experiment declares its key; the key resolves here. See src/detlab/wandb_registry.py for precedence and for why the registry beats the environment.",
+  "_entity": "benjbritton-geoai",
+  "projects": {
+    "spacenet2": "benjbritton_FA26",
+    "chactun": "chactun-multiclass",
+    "balloon": "detectron2-warmup",
+    "gliht": "gliht-portability"
+  },
+  "_spacenet2_note": "Keeps the original project name deliberately. It holds the historical runs and is the target of published links in posts/2026-08-30-hue-predicts-which-cities-are-hard.md. Renaming it is a separate decision, not part of this cleanup."
+}

@@ -20,11 +20,16 @@ import sys
 import cv2
 import numpy as np
 
-sys.path.insert(0, "/w/repos/benjbritton_FA26/src")
+import os
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(_HERE)   # repo root, whatever it is called
+
+sys.path.insert(0, ROOT + "/src")
 
 from detlab.datasets.chactun import Rot90Transform, ChactunMapper  # noqa: E402
 
-COCO = "/w/data/chactun/coco/fold0_val.json"
+COCO = ROOT + "/data/chactun/coco/fold0_val.json"
 SIZE = 480
 
 
@@ -91,9 +96,9 @@ def main():
     cfg = get_cfg()
     cfg.merge_from_file(model_zoo.get_config_file(
         "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"))
-    cfg.merge_from_file("/w/repos/benjbritton_FA26/configs/"
+    cfg.merge_from_file(ROOT + "/configs/"
                         "chactun_D_maskrcnn_d4_augmentation.yaml")
-    chactun.register_fold(root="/w/data/chactun", fold=0)
+    chactun.register_fold(root=ROOT + "/data/chactun", fold=0)
     dicts = DatasetCatalog.get("chactun_fold0_train")
     rec = next(r for r in dicts if len(r.get("annotations", [])) >= 5)
 

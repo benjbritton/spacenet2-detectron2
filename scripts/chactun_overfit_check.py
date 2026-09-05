@@ -23,7 +23,10 @@ import os
 
 import numpy as np
 
-REPO = "/w/repos/benjbritton_FA26"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(_HERE)   # repo root, whatever it is called
+
+REPO = ROOT
 ARMS = {
     "A": "outputs/chactun_A_maskrcnn_default_anchors",
     "D": "outputs/chactun_D_maskrcnn_d4_augmentation",

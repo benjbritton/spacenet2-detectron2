@@ -15,7 +15,12 @@ from collections import Counter
 
 import numpy as np
 
-sys.path.insert(0, "/w/repos/benjbritton_FA26/src")
+import os
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(_HERE)   # repo root, whatever it is called
+
+sys.path.insert(0, ROOT + "/src")
 
 from detectron2 import model_zoo
 from detectron2.config import get_cfg
@@ -31,11 +36,11 @@ def main():
     cfg = get_cfg()
     cfg.merge_from_file(model_zoo.get_config_file(
         "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"))
-    cfg.merge_from_file("/w/repos/benjbritton_FA26/configs/"
+    cfg.merge_from_file(ROOT + "/configs/"
                         "chactun_E_maskrcnn_repeat_sampler.yaml")
     cfg.DATASETS.TRAIN = ("chactun_fold0_train",)
 
-    chactun.register_fold(root="/w/data/chactun", fold=0)
+    chactun.register_fold(root=ROOT + "/data/chactun", fold=0)
     dicts = DatasetCatalog.get("chactun_fold0_train")
     meta = MetadataCatalog.get("chactun_fold0_train")
     names = meta.thing_classes
